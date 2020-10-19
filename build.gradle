@@ -1,0 +1,70 @@
+plugins {
+	id "java"
+	id "eclipse"
+	id "idea"
+	id "checkstyle"
+	id "maven-publish"
+	id "net.minecrell.licenser" version "0.4.1"
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+def baseVersion = "0.1"
+group "net.fabricmc"
+archivesBaseName = "accesswidener"
+
+// Fetch build number from Jenkins
+def ENV = System.getenv()
+version = baseVersion + "+" + (ENV.BUILD_NUMBER ? ("build." + ENV.BUILD_NUMBER) : "local")
+logger.lifecycle("Building Accesswidener: " + version)
+
+repositories {
+	mavenCentral()
+
+	maven {
+		name = "Fabric"
+		url = "https://maven.fabricmc.net/"
+	}
+}
+
+dependencies {
+	def asmVersion = "9.0"
+
+	compile "org.ow2.asm:asm:$asmVersion"
+	compile "org.ow2.asm:asm-commons:$asmVersion" // For Remapper
+}
+
+license {
+	header project.file("HEADER")
+	include "**/*.java"
+}
+
+checkstyle {
+	configFile = project.file("checkstyle.xml")
+	toolVersion = "8.31"
+}
+
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			artifact(file("${project.buildDir}/libs/$archivesBaseName-${version}.jar")) {
+				builtBy compileJava
+			}
+		}
+	}
+
+	repositories {
+		mavenLocal()
+
+		if (project.hasProperty('mavenPass')) {
+			maven {
+				url = "http://mavenupload.modmuss50.me/"
+				credentials {
+					username = "buildslave"
+					password = project.getProperty('mavenPass')
+				}
+			}
+		}
+	}
+}
