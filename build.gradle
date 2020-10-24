@@ -1,7 +1,6 @@
 plugins {
 	id "java"
-	id "eclipse"
-	id "idea"
+	id "java-library"
 	id "checkstyle"
 	id "maven-publish"
 	id "net.minecrell.licenser" version "0.4.1"
@@ -10,13 +9,11 @@ plugins {
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
-def baseVersion = "0.1"
 group "net.fabricmc"
-archivesBaseName = "accesswidener"
+archivesBaseName = "access-widener"
 
-// Fetch build number from Jenkins
 def ENV = System.getenv()
-version = baseVersion + "+" + (ENV.BUILD_NUMBER ? ("build." + ENV.BUILD_NUMBER) : "local")
+version = "0.0.1"
 logger.lifecycle("Building Accesswidener: " + version)
 
 repositories {
@@ -31,8 +28,8 @@ repositories {
 dependencies {
 	def asmVersion = "9.0"
 
-	compile "org.ow2.asm:asm:$asmVersion"
-	compile "org.ow2.asm:asm-commons:$asmVersion" // For Remapper
+	api "org.ow2.asm:asm:$asmVersion"
+	api "org.ow2.asm:asm-commons:$asmVersion" // For Remapper
 }
 
 license {
@@ -48,21 +45,19 @@ checkstyle {
 publishing {
 	publications {
 		mavenJava(MavenPublication) {
-			artifact(file("${project.buildDir}/libs/$archivesBaseName-${version}.jar")) {
-				builtBy compileJava
-			}
+			from components.java
 		}
 	}
 
 	repositories {
 		mavenLocal()
 
-		if (project.hasProperty('mavenPass')) {
-			maven {
-				url = "http://mavenupload.modmuss50.me/"
+		if (ENV.MAVEN_URL) {
+			repositories.maven {
+				url ENV.MAVEN_URL
 				credentials {
-					username = "buildslave"
-					password = project.getProperty('mavenPass')
+					username ENV.MAVEN_USERNAME
+					password ENV.MAVEN_PASSWORD
 				}
 			}
 		}
