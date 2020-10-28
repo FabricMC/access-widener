@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-public class AccessWidenerReader {
+public final class AccessWidenerReader {
 	private final AccessWidener accessWidener;
 
 	public AccessWidenerReader(AccessWidener accessWidener) {

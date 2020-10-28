@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class AccessWidenerWriter {
+public final class AccessWidenerWriter {
 	private final AccessWidener accessWidener;
 
 	public AccessWidenerWriter(AccessWidener accessWidener) {

@@ -21,7 +21,7 @@ import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-final class AccessWidenerVisitor extends ClassVisitor {
+public final class AccessWidenerVisitor extends ClassVisitor {
 	private final AccessWidener accessWidener;
 	private String className;
 	private int classAccess;
