@@ -43,10 +43,6 @@ final class EntryTriple {
 		return "EntryTriple{owner=" + this.owner + ",name=" + this.name + ",desc=" + this.desc + "}";
 	}
 
-	protected Object clone() {
-		return new EntryTriple(this.owner, this.name, this.desc);
-	}
-
 	public boolean equals(Object o) {
 		if (!(o instanceof EntryTriple)) {
 			return false;

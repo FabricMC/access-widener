@@ -16,18 +16,12 @@
 
 package net.fabricmc.accesswidener;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.StringWriter;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
 
 public final class AccessWidener {
@@ -35,150 +29,7 @@ public final class AccessWidener {
 	final Map<String, Access> classAccess = new HashMap<>();
 	final Map<EntryTriple, Access> methodAccess = new HashMap<>();
 	final Map<EntryTriple, Access> fieldAccess = new HashMap<>();
-	private final Set<String> classes = new LinkedHashSet<>();
-
-	public void read(BufferedReader reader, String currentNamespace) throws IOException {
-		String[] header = reader.readLine().split("\\s+");
-
-		if (header.length != 3 || !header[0].equals("accessWidener")) {
-			throw new UnsupportedOperationException("Invalid access access widener file");
-		}
-
-		if (!header[1].equals("v1")) {
-			throw new RuntimeException(String.format("Unsupported access widener format (%s)", header[1]));
-		}
-
-		if (currentNamespace != null && !header[2].equals(currentNamespace)) {
-			throw new RuntimeException(String.format("Namespace (%s) does not match current runtime namespace (%s)", header[2], currentNamespace));
-		}
-
-		if (namespace != null) {
-			if (!namespace.equals(header[2])) {
-				throw new RuntimeException(String.format("Namespace mismatch, expected %s got %s", namespace, header[2]));
-			}
-		}
-
-		namespace = header[2];
-
-		String line;
-		Set<String> targets = new LinkedHashSet<>();
-
-		while ((line = reader.readLine()) != null) {
-			//Comment handling
-			int commentPos = line.indexOf('#');
-
-			if (commentPos >= 0) {
-				line = line.substring(0, commentPos).trim();
-			}
-
-			if (line.isEmpty()) continue;
-
-			String[] split = line.split("\\s+");
-
-			if (split.length != 3 && split.length != 5) {
-				throw new RuntimeException(String.format("Invalid line (%s)", line));
-			}
-
-			String access = split[0];
-
-			targets.add(split[2].replaceAll("/", "."));
-
-			switch (split[1]) {
-			case "class":
-				if (split.length != 3) {
-					throw new RuntimeException(String.format("Expected (<access>\tclass\t<className>) got (%s)", line));
-				}
-
-				classAccess.put(split[2], applyAccess(access, classAccess.getOrDefault(split[2], ClassAccess.DEFAULT), null));
-				break;
-			case "field":
-				if (split.length != 5) {
-					throw new RuntimeException(String.format("Expected (<access>\tfield\t<className>\t<fieldName>\t<fieldDesc>) got (%s)", line));
-				}
-
-				addOrMerge(fieldAccess, new EntryTriple(split[2], split[3], split[4]), access, FieldAccess.DEFAULT);
-				break;
-			case "method":
-				if (split.length != 5) {
-					throw new RuntimeException(String.format("Expected (<access>\tmethod\t<className>\t<methodName>\t<methodDesc>) got (%s)", line));
-				}
-
-				addOrMerge(methodAccess, new EntryTriple(split[2], split[3], split[4]), access, MethodAccess.DEFAULT);
-				break;
-			default:
-				throw new UnsupportedOperationException("Unsupported type " + split[1]);
-			}
-		}
-
-		Set<String> parentClasses = new LinkedHashSet<>();
-
-		//Also transform all parent classes
-		for (String clazz : targets) {
-			while (clazz.contains("$")) {
-				clazz = clazz.substring(0, clazz.lastIndexOf("$"));
-				parentClasses.add(clazz);
-			}
-		}
-
-		classes.addAll(targets);
-		classes.addAll(parentClasses);
-	}
-
-	public void write(StringWriter writer) {
-		writer.write("accessWidener\tv1\t");
-		writer.write(namespace);
-		writer.write("\n");
-
-		for (Map.Entry<String, Access> entry : classAccess.entrySet()) {
-			for (String s : getAccesses(entry.getValue())) {
-				writer.write(s);
-				writer.write("\tclass\t");
-				writer.write(entry.getKey());
-				writer.write("\n");
-			}
-		}
-
-		for (Map.Entry<EntryTriple, Access> entry : methodAccess.entrySet()) {
-			writeEntry(writer, "method", entry.getKey(), entry.getValue());
-		}
-
-		for (Map.Entry<EntryTriple, Access> entry : fieldAccess.entrySet()) {
-			writeEntry(writer, "field", entry.getKey(), entry.getValue());
-		}
-	}
-
-	private void writeEntry(StringWriter writer, String type, EntryTriple entryTriple, Access access) {
-		for (String s : getAccesses(access)) {
-			writer.write(s);
-			writer.write("\t");
-			writer.write(type);
-			writer.write("\t");
-			writer.write(entryTriple.getOwner());
-			writer.write("\t");
-			writer.write(entryTriple.getName());
-			writer.write("\t");
-			writer.write(entryTriple.getDesc());
-			writer.write("\n");
-		}
-	}
-
-	private List<String> getAccesses(Access access) {
-		List<String> accesses = new ArrayList<>();
-
-		if (access == ClassAccess.ACCESSIBLE || access == MethodAccess.ACCESSIBLE || access == FieldAccess.ACCESSIBLE || access == MethodAccess.ACCESSIBLE_EXTENDABLE || access == ClassAccess.ACCESSIBLE_EXTENDABLE || access == FieldAccess.ACCESSIBLE_MUTABLE) {
-			accesses.add("accessible");
-		}
-
-		if (access == ClassAccess.EXTENDABLE || access == MethodAccess.EXTENDABLE || access == MethodAccess.ACCESSIBLE_EXTENDABLE || access == ClassAccess.ACCESSIBLE_EXTENDABLE) {
-			accesses.add("extendable");
-		}
-
-		if (access == FieldAccess.MUTABLE || access == FieldAccess.ACCESSIBLE_MUTABLE) {
-			accesses.add("mutable");
-		}
-
-		return accesses;
-	}
+	final Set<String> classes = new LinkedHashSet<>();
 
 	void addOrMerge(Map<EntryTriple, Access> map, EntryTriple entry, Access access) {
 		if (entry == null || access == null) {
@@ -226,7 +77,7 @@ public final class AccessWidener {
 		map.put(entry, applyAccess(access, map.getOrDefault(entry, defaultAccess), entry));
 	}
 
-	private Access applyAccess(String input, Access access, EntryTriple entryTriple) {
+	Access applyAccess(String input, Access access, EntryTriple entryTriple) {
 		switch (input.toLowerCase(Locale.ROOT)) {
 		case "accessible":
 			makeClassAccessible(entryTriple);
@@ -267,8 +118,8 @@ public final class AccessWidener {
 		return classes;
 	}
 
-	public ClassVisitor createClassVisitor(int api, ClassVisitor visitor, AccessWidener accessWidener) {
-		return new AccessWidenerVisitor(api, visitor, accessWidener);
+	public String getNamespace() {
+		return namespace;
 	}
 
 	private static int makePublic(int i) {
