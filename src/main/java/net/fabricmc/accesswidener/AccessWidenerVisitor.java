@@ -31,6 +31,10 @@ final class AccessWidenerVisitor extends ClassVisitor {
 		this.accessWidener = accessWidener;
 	}
 
+	public static ClassVisitor createClassVisitor(int api, ClassVisitor visitor, AccessWidener accessWidener) {
+		return new AccessWidenerVisitor(api, visitor, accessWidener);
+	}
+
 	@Override
 	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 		className = name;
