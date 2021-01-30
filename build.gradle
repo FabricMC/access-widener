@@ -3,6 +3,7 @@ plugins {
 	id "java-library"
 	id "checkstyle"
 	id "maven-publish"
+	id "me.modmuss50.remotesign" version "0.1.0"
 	id "net.minecrell.licenser" version "0.4.1"
 }
 
@@ -13,8 +14,8 @@ group "net.fabricmc"
 archivesBaseName = "access-widener"
 
 def ENV = System.getenv()
-version = "1.0.0"
-logger.lifecycle("Building Accesswidener: " + version)
+version = "1.0.1"
+logger.lifecycle("Building AccessWidener: " + version)
 
 repositories {
 	mavenCentral()
@@ -22,6 +23,14 @@ repositories {
 	maven {
 		name = "Fabric"
 		url = "https://maven.fabricmc.net/"
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = "UTF-8"
+
+	if (JavaVersion.current().isJava9Compatible()) {
+		it.options.release = 8
 	}
 }
 
@@ -42,9 +51,8 @@ checkstyle {
 	toolVersion = "8.31"
 }
 
-task sourcesJar(type: Jar, dependsOn: classes) {
-	archiveClassifier = 'sources'
-	from sourceSets.main.allSource
+java {
+	withSourcesJar()
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
@@ -52,13 +60,79 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
 	from javadoc.destinationDir
 }
 
+if (ENV.SIGNING_SERVER) {
+	remoteSign {
+		requestUrl ENV.SIGNING_SERVER
+		pgpAuthKey ENV.SIGNING_PGP_KEY
+		jarAuthKey ENV.SIGNING_JAR_KEY
+
+		sign (jar, javadocJar, sourcesJar)
+
+		afterEvaluate {
+			sign publishing.publications.mavenJava
+		}
+	}
+}
+
 publishing {
 	publications {
 		mavenJava(MavenPublication) {
-			from components.java
+			if (ENV.SIGNING_SERVER) {
+				artifact(signJar) {
+					classifier null
+				}
 
-			artifact(sourcesJar)
-			artifact(javadocJar)
+				artifact(signJavadocJar) {
+					classifier "javadoc"
+				}
+
+				artifact(signSourcesJar) {
+					classifier "sources"
+				}
+			} else {
+				from components.java
+
+				artifact(sourcesJar)
+				artifact(javadocJar)
+			}
+
+			pom {
+				name = 'access-widener'
+				description = 'Access widener provides a way to loosen the access limits of classes in a data drive manner.'
+				url = 'https://github.com/FabricMC/access-widener'
+
+				scm {
+					connection = "scm:git:https://github.com/FabricMC/access-widener.git"
+					developerConnection = "scm:git:git@github.com:FabricMC/access-widener.git"
+					url = "https://github.com/FabricMC/access-widener"
+				}
+
+				issueManagement {
+					system = "GitHub"
+					url = "https://github.com/FabricMC/access-widener/issues"
+				}
+
+				licenses {
+					license {
+						name = 'The Apache License, Version 2.0'
+						url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+					}
+				}
+
+				developers {
+					developer {
+						id = "modmuss50"
+						name = "modmuss50"
+						email = "modmuss50@fabricmc.net"
+					}
+
+					developer {
+						id = "sfPlayer"
+						name = "Player"
+						email = "player@fabricmc.net"
+					}
+				}
+			}
 		}
 	}
 
@@ -71,6 +145,16 @@ publishing {
 				credentials {
 					username ENV.MAVEN_USERNAME
 					password ENV.MAVEN_PASSWORD
+				}
+			}
+		}
+
+		if (ENV.MAVEN_CENTRAL_URL) {
+			repositories.maven {
+				url ENV.MAVEN_CENTRAL_URL
+				credentials {
+					username ENV.MAVEN_CENTRAL_USERNAME
+					password ENV.MAVEN_CENTRAL_PASSWORD
 				}
 			}
 		}
