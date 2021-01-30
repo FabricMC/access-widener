@@ -14,7 +14,7 @@ group "net.fabricmc"
 archivesBaseName = "access-widener"
 
 def ENV = System.getenv()
-version = "1.0.1"
+version = "1.0.2"
 logger.lifecycle("Building AccessWidener: " + version)
 
 repositories {
@@ -92,7 +92,6 @@ publishing {
 			} else {
 				from components.java
 
-				artifact(sourcesJar)
 				artifact(javadocJar)
 			}
 
@@ -141,6 +140,7 @@ publishing {
 
 		if (ENV.MAVEN_URL) {
 			repositories.maven {
+				name "fabric"
 				url ENV.MAVEN_URL
 				credentials {
 					username ENV.MAVEN_USERNAME
@@ -151,6 +151,7 @@ publishing {
 
 		if (ENV.MAVEN_CENTRAL_URL) {
 			repositories.maven {
+				name "central"
 				url ENV.MAVEN_CENTRAL_URL
 				credentials {
 					username ENV.MAVEN_CENTRAL_USERNAME
