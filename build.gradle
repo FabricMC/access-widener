@@ -128,8 +128,8 @@ publishing {
 
 					developer {
 						id = "sfPlayer"
-						name = "sfPlayer"
-						email = "sfPlayer@fabricmc.net"
+						name = "Player"
+						email = "player@fabricmc.net"
 					}
 				}
 			}
