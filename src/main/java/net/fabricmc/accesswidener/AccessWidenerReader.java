@@ -18,14 +18,17 @@ package net.fabricmc.accesswidener;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.Locale;
 
 public final class AccessWidenerReader {
-	private final AccessWidener accessWidener;
+	private final Visitor visitor;
 
 	public AccessWidenerReader(AccessWidener accessWidener) {
-		this.accessWidener = accessWidener;
+		this.visitor = accessWidener;
+	}
+
+	public AccessWidenerReader(Visitor visitor) {
+		this.visitor = visitor;
 	}
 
 	public void read(BufferedReader reader) throws IOException {
@@ -47,16 +50,9 @@ public final class AccessWidenerReader {
 			throw new RuntimeException(String.format("Namespace (%s) does not match current runtime namespace (%s)", header[2], currentNamespace));
 		}
 
-		if (accessWidener.namespace != null) {
-			if (!accessWidener.namespace.equals(header[2])) {
-				throw new RuntimeException(String.format("Namespace mismatch, expected %s got %s", accessWidener.namespace, header[2]));
-			}
-		}
-
-		accessWidener.namespace = header[2];
+		visitor.visitHeader(header[2]);
 
 		String line;
-		Set<String> targets = new LinkedHashSet<>();
 
 		while ((line = reader.readLine()) != null) {
 			//Comment handling
@@ -74,9 +70,7 @@ public final class AccessWidenerReader {
 				throw new RuntimeException(String.format("Invalid line (%s)", line));
 			}
 
-			String access = split[0];
-
-			targets.add(split[2].replaceAll("/", "."));
+			AccessType access = readAccessType(split[0]);
 
 			switch (split[1]) {
 			case "class":
@@ -84,38 +78,96 @@ public final class AccessWidenerReader {
 					throw new RuntimeException(String.format("Expected (<access>\tclass\t<className>) got (%s)", line));
 				}
 
-				accessWidener.classAccess.put(split[2], accessWidener.applyAccess(access, accessWidener.classAccess.getOrDefault(split[2], AccessWidener.ClassAccess.DEFAULT), null));
+				visitor.visitClass(split[2], access);
 				break;
 			case "field":
 				if (split.length != 5) {
 					throw new RuntimeException(String.format("Expected (<access>\tfield\t<className>\t<fieldName>\t<fieldDesc>) got (%s)", line));
 				}
 
-				accessWidener.addOrMerge(accessWidener.fieldAccess, new EntryTriple(split[2], split[3], split[4]), access, AccessWidener.FieldAccess.DEFAULT);
+				visitor.visitField(split[2], split[3], split[4], access);
 				break;
 			case "method":
 				if (split.length != 5) {
 					throw new RuntimeException(String.format("Expected (<access>\tmethod\t<className>\t<methodName>\t<methodDesc>) got (%s)", line));
 				}
 
-				accessWidener.addOrMerge(accessWidener.methodAccess, new EntryTriple(split[2], split[3], split[4]), access, AccessWidener.MethodAccess.DEFAULT);
+				visitor.visitMethod(split[2], split[3], split[4], access);
 				break;
 			default:
 				throw new UnsupportedOperationException("Unsupported type " + split[1]);
 			}
 		}
+	}
 
-		Set<String> parentClasses = new LinkedHashSet<>();
+	private static AccessType readAccessType(String access) {
+		switch (access.toLowerCase(Locale.ROOT)) {
+		case "accessible":
+			return AccessType.ACCESSIBLE;
+		case "extendable":
+			return AccessType.EXTENDABLE;
+		case "mutable":
+			return AccessType.MUTABLE;
+		default:
+			throw new IllegalArgumentException("Unknown access type: " + access);
+		}
+	}
 
-		//Also transform all parent classes
-		for (String clazz : targets) {
-			while (clazz.contains("$")) {
-				clazz = clazz.substring(0, clazz.lastIndexOf("$"));
-				parentClasses.add(clazz);
-			}
+	public enum AccessType {
+		ACCESSIBLE("accessible"),
+		EXTENDABLE("extendable"),
+		MUTABLE("mutable");
+
+		private final String id;
+
+		AccessType(String id) {
+			this.id = id;
 		}
 
-		accessWidener.classes.addAll(targets);
-		accessWidener.classes.addAll(parentClasses);
+		@Override
+		public String toString() {
+			return id;
+		}
+	}
+
+	public interface Visitor {
+		/**
+		 * Visits the header data.
+		 *
+		 * @param namespace the access widener's mapping namespace
+		 */
+		default void visitHeader(String namespace) {
+		}
+
+		/**
+		 * Visits a widened class.
+		 *
+		 * @param name   the name of the class
+		 * @param access the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#EXTENDABLE})
+		 */
+		default void visitClass(String name, AccessType access) {
+		}
+
+		/**
+		 * Visits a widened method.
+		 *
+		 * @param owner      the name of the containing class
+		 * @param name       the name of the method
+		 * @param descriptor the method descriptor
+		 * @param access     the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#EXTENDABLE})
+		 */
+		default void visitMethod(String owner, String name, String descriptor, AccessType access) {
+		}
+
+		/**
+		 * Visits a widened field.
+		 *
+		 * @param owner      the name of the containing class
+		 * @param name       the name of the field
+		 * @param descriptor the type of the field as a type descriptor
+		 * @param access     the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#MUTABLE})
+		 */
+		default void visitField(String owner, String name, String descriptor, AccessType access) {
+		}
 	}
 }

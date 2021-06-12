@@ -18,18 +18,55 @@ package net.fabricmc.accesswidener;
 
 import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 import org.objectweb.asm.Opcodes;
 
-public final class AccessWidener {
+public final class AccessWidener implements AccessWidenerReader.Visitor {
 	String namespace;
 	final Map<String, Access> classAccess = new HashMap<>();
 	final Map<EntryTriple, Access> methodAccess = new HashMap<>();
 	final Map<EntryTriple, Access> fieldAccess = new HashMap<>();
 	final Set<String> classes = new LinkedHashSet<>();
+
+	@Override
+	public void visitHeader(String namespace) {
+		if (this.namespace != null && !this.namespace.equals(namespace)) {
+			throw new RuntimeException(String.format("Namespace mismatch, expected %s got %s", this.namespace, namespace));
+		}
+
+		this.namespace = namespace;
+	}
+
+	@Override
+	public void visitClass(String name, AccessWidenerReader.AccessType access) {
+		classAccess.put(name, applyAccess(access, classAccess.getOrDefault(name, ClassAccess.DEFAULT), null));
+		addTargets(name);
+	}
+
+	@Override
+	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access) {
+		addOrMerge(methodAccess, new EntryTriple(owner, name, descriptor), access, MethodAccess.DEFAULT);
+		addTargets(owner);
+	}
+
+	@Override
+	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access) {
+		addOrMerge(fieldAccess, new EntryTriple(owner, name, descriptor), access, FieldAccess.DEFAULT);
+		addTargets(owner);
+	}
+
+	private void addTargets(String clazz) {
+		clazz = clazz.replace('/', '.');
+		classes.add(clazz);
+
+		//Also transform all parent classes
+		while (clazz.contains("$")) {
+			clazz = clazz.substring(0, clazz.lastIndexOf("$"));
+			classes.add(clazz);
+		}
+	}
 
 	void addOrMerge(Map<EntryTriple, Access> map, EntryTriple entry, Access access) {
 		if (entry == null || access == null) {
@@ -69,7 +106,7 @@ public final class AccessWidener {
 		return access;
 	}
 
-	void addOrMerge(Map<EntryTriple, Access> map, EntryTriple entry, String access, Access defaultAccess) {
+	void addOrMerge(Map<EntryTriple, Access> map, EntryTriple entry, AccessWidenerReader.AccessType access, Access defaultAccess) {
 		if (entry == null || access == null) {
 			throw new RuntimeException("Input entry or access is null");
 		}
@@ -77,15 +114,15 @@ public final class AccessWidener {
 		map.put(entry, applyAccess(access, map.getOrDefault(entry, defaultAccess), entry));
 	}
 
-	Access applyAccess(String input, Access access, EntryTriple entryTriple) {
-		switch (input.toLowerCase(Locale.ROOT)) {
-		case "accessible":
+	Access applyAccess(AccessWidenerReader.AccessType input, Access access, EntryTriple entryTriple) {
+		switch (input) {
+		case ACCESSIBLE:
 			makeClassAccessible(entryTriple);
 			return access.makeAccessible();
-		case "extendable":
+		case EXTENDABLE:
 			makeClassExtendable(entryTriple);
 			return access.makeExtendable();
-		case "mutable":
+		case MUTABLE:
 			return access.makeMutable();
 		default:
 			throw new UnsupportedOperationException("Unknown access type:" + input);
@@ -94,12 +131,12 @@ public final class AccessWidener {
 
 	private void makeClassAccessible(EntryTriple entryTriple) {
 		if (entryTriple == null) return;
-		classAccess.put(entryTriple.getOwner(), applyAccess("accessible", classAccess.getOrDefault(entryTriple.getOwner(), ClassAccess.DEFAULT), null));
+		classAccess.put(entryTriple.getOwner(), applyAccess(AccessWidenerReader.AccessType.ACCESSIBLE, classAccess.getOrDefault(entryTriple.getOwner(), ClassAccess.DEFAULT), null));
 	}
 
 	private void makeClassExtendable(EntryTriple entryTriple) {
 		if (entryTriple == null) return;
-		classAccess.put(entryTriple.getOwner(), applyAccess("extendable", classAccess.getOrDefault(entryTriple.getOwner(), ClassAccess.DEFAULT), null));
+		classAccess.put(entryTriple.getOwner(), applyAccess(AccessWidenerReader.AccessType.EXTENDABLE, classAccess.getOrDefault(entryTriple.getOwner(), ClassAccess.DEFAULT), null));
 	}
 
 	Access getClassAccess(String className) {
