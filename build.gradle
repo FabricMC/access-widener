@@ -48,7 +48,7 @@ license {
 
 checkstyle {
 	configFile = project.file("checkstyle.xml")
-	toolVersion = "8.31"
+	toolVersion = "8.43"
 }
 
 java {
