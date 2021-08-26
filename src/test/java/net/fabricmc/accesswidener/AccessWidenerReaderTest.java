@@ -122,12 +122,12 @@ public class AccessWidenerReaderTest {
 
 		private void testParseClassAccess(AccessWidener.Access expectedAccess, String... keyword) throws IOException {
 			String lines = Arrays.stream(keyword)
-					.map(kw -> kw + " class some.test.Class")
+					.map(kw -> kw + " class some/test/Class")
 					.collect(Collectors.joining("\n"));
 			parse(lines);
 
 			assertThat(visitor.classes).containsOnly("some.test.Class");
-			assertThat(visitor.classAccess).containsOnly(entry("some.test.Class", expectedAccess));
+			assertThat(visitor.classAccess).containsOnly(entry("some/test/Class", expectedAccess));
 			assertThat(visitor.fieldAccess).isEmpty();
 			assertThat(visitor.methodAccess).isEmpty();
 		}
@@ -206,7 +206,7 @@ public class AccessWidenerReaderTest {
 				String... keyword
 		) throws IOException {
 			String lines = Arrays.stream(keyword)
-					.map(kw -> kw + " field some.test.Class someField I")
+					.map(kw -> kw + " field some/test/Class someField I")
 					.collect(Collectors.joining("\n"));
 			parse(lines);
 
@@ -214,14 +214,14 @@ public class AccessWidenerReaderTest {
 
 			if (expectedClassAccess != null) {
 				assertThat(visitor.classAccess).containsOnly(
-						entry("some.test.Class", expectedClassAccess)
+						entry("some/test/Class", expectedClassAccess)
 				);
 			} else {
 				assertThat(visitor.classAccess).isEmpty();
 			}
 
 			assertThat(visitor.fieldAccess).containsOnly(
-					entry(new EntryTriple("some.test.Class", "someField", "I"), expectedFieldAccess)
+					entry(new EntryTriple("some/test/Class", "someField", "I"), expectedFieldAccess)
 			);
 			assertThat(visitor.methodAccess).isEmpty();
 		}
@@ -301,7 +301,7 @@ public class AccessWidenerReaderTest {
 				String... keyword
 		) throws IOException {
 			String lines = Arrays.stream(keyword)
-					.map(kw -> kw + " method some.test.Class someMethod ()V")
+					.map(kw -> kw + " method some/test/Class someMethod ()V")
 					.collect(Collectors.joining("\n"));
 			parse(lines);
 
@@ -309,14 +309,14 @@ public class AccessWidenerReaderTest {
 
 			if (expectedClassAccess != null) {
 				assertThat(visitor.classAccess).containsOnly(
-						entry("some.test.Class", expectedClassAccess)
+						entry("some/test/Class", expectedClassAccess)
 				);
 			} else {
 				assertThat(visitor.classAccess).isEmpty();
 			}
 
 			assertThat(visitor.methodAccess).containsOnly(
-					entry(new EntryTriple("some.test.Class", "someMethod", "()V"), expectedMethodAccess)
+					entry(new EntryTriple("some/test/Class", "someMethod", "()V"), expectedMethodAccess)
 			);
 			assertThat(visitor.fieldAccess).isEmpty();
 		}

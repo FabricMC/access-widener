@@ -25,9 +25,13 @@ import org.objectweb.asm.Opcodes;
 
 public final class AccessWidener implements AccessWidenerReader.Visitor {
 	String namespace;
+	// Contains the actual transforms. Class names are as class-file internal binary names (forward slash is used
+	// instead of period as the package separator).
 	final Map<String, Access> classAccess = new HashMap<>();
 	final Map<EntryTriple, Access> methodAccess = new HashMap<>();
 	final Map<EntryTriple, Access> fieldAccess = new HashMap<>();
+	// Contains the class-names that are affected by loaded wideners.
+	// Names are period-separated binary names (i.e. a.b.C).
 	final Set<String> classes = new LinkedHashSet<>();
 
 	@Override
