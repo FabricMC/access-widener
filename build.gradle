@@ -36,9 +36,15 @@ tasks.withType(JavaCompile).configureEach {
 
 dependencies {
 	def asmVersion = "9.0"
+	def junitVersion = "5.7.2"
+	def assertJVersion = "3.20.2"
 
 	api "org.ow2.asm:asm:$asmVersion"
 	api "org.ow2.asm:asm-commons:$asmVersion" // For Remapper
+
+	testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
+	testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
+	testImplementation("org.assertj:assertj-core:$assertJVersion")
 }
 
 license {
@@ -53,6 +59,10 @@ checkstyle {
 
 java {
 	withSourcesJar()
+}
+
+test {
+	useJUnitPlatform()
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
