@@ -39,6 +39,7 @@ public final class AccessWidenerVisitor extends ClassVisitor {
 	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 		className = name;
 		classAccess = access;
+
 		super.visit(
 				version,
 				accessWidener.getClassAccess(name).apply(access, name, classAccess),

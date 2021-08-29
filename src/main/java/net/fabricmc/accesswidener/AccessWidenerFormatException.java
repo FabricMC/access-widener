@@ -20,7 +20,22 @@ package net.fabricmc.accesswidener;
  * Thrown when an access widener file couldn't be read due to an incorrect format.
  */
 public class AccessWidenerFormatException extends RuntimeException {
-	public AccessWidenerFormatException(String message) {
+	private final int lineNumber;
+
+	public AccessWidenerFormatException(int lineNumber, String message) {
 		super(message);
+		this.lineNumber = lineNumber;
+	}
+
+	/**
+	 * The line on which the error occurred. Starts with 1.
+	 */
+	public int getLineNumber() {
+		return lineNumber;
+	}
+
+	@Override
+	public String toString() {
+		return getClass().getName() + ": line " + lineNumber + ": " + getMessage();
 	}
 }

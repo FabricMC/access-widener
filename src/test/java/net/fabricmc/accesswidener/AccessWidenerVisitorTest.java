@@ -133,7 +133,28 @@ class AccessWidenerVisitorTest {
 			Class<?> testClass = applyTransformer("test.MethodTests");
 
 			assertEquals("public final", Modifier.toString(testClass.getModifiers()));
+			// Note that this also made the method final
 			assertEquals("public final", Modifier.toString(testClass.getDeclaredMethod("privateMethod").getModifiers()));
+		}
+
+		@Test
+		void testMakeConstructorAccessible() throws Exception {
+			widener.visitMethod("test/MethodTests", "<init>", "()V", AccessWidenerReader.AccessType.ACCESSIBLE);
+			Class<?> testClass = applyTransformer("test.MethodTests");
+
+			assertEquals("public final", Modifier.toString(testClass.getModifiers()));
+			// Note that this did _not_ make the ctor final since constructors cannot be overridden anyway.
+			assertEquals("public", Modifier.toString(testClass.getDeclaredConstructor().getModifiers()));
+		}
+
+		@Test
+		void testMakeStaticMethodAccessible() throws Exception {
+			widener.visitMethod("test/MethodTests", "staticMethod", "()V", AccessWidenerReader.AccessType.ACCESSIBLE);
+			Class<?> testClass = applyTransformer("test.MethodTests");
+
+			assertEquals("public final", Modifier.toString(testClass.getModifiers()));
+			// Note that this did _not_ make the method final since static methods cannot be overridden anyway.
+			assertEquals("public static", Modifier.toString(testClass.getDeclaredMethod("staticMethod").getModifiers()));
 		}
 
 		@Test

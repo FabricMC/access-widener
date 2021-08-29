@@ -17,7 +17,13 @@
 package test;
 
 final class MethodTests {
+	private MethodTests() {
+	}
+
 	private void privateMethod() {
+	}
+
+	private static void staticMethod() {
 	}
 
 	// CHECKSTYLE.OFF: RedundantModifier

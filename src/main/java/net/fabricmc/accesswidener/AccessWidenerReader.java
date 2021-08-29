@@ -154,8 +154,8 @@ public final class AccessWidenerReader {
 		// Note that getLineNumber is actually 1 line after the current line position,
 		// because it is 0-based. But since our reporting here is 1-based, it works out.
 		// If this class ever starts reading lines incrementally however, it'd need to be changed.
-		return new AccessWidenerFormatException(String.format(Locale.ROOT, format, args)
-				+ " [on line " + reader.getLineNumber() + "]");
+		String message = String.format(Locale.ROOT, format, args);
+		return new AccessWidenerFormatException(reader.getLineNumber(), message);
 	}
 
 	public interface Visitor {
