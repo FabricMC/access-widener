@@ -24,8 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Nested;
@@ -353,7 +357,7 @@ public class AccessWidenerReaderTest {
 		@Test
 		public void throwsOnInvalidTypeAfterAccessible() {
 			assertFormatError(
-					"Unsupported type blergh",
+					"Unsupported type: 'blergh'",
 					() -> parseLines("accessible blergh")
 			);
 		}
@@ -384,6 +388,72 @@ public class AccessWidenerReaderTest {
 			parseLines("accessible\tclass\tSomeName");
 			assertThat(visitor.classes).containsOnly("SomeName");
 		}
+
+		@Test
+		public void testCanParseWithMultipleSeparators() throws IOException {
+			parseLines("accessible \tclass\t\t SomeName");
+			assertThat(visitor.classes).containsOnly("SomeName");
+		}
+	}
+
+	/**
+	 * Tests parsing features introduced in the V2 format.
+	 */
+	@Nested
+	class V2Parsing {
+		@Test
+		void throwsOnMissingKeywordsAfterGlobal() {
+			assertFormatError(
+					"Expected <accessible|extendable|mutable>",
+					() -> parseLines("global ")
+			);
+		}
+
+		@Test
+		void globalKeywordIsIgnoredWhenNoFilterIsSet() throws Exception {
+			String testInput = readTestInput("AccessWidenerReaderTest_global.txt");
+			parse(testInput);
+
+			assertWidenerContains("local");
+			assertWidenerContains("global");
+			assertThat(visitor.classAccess).hasSize(6);
+			assertThat(visitor.methodAccess).hasSize(6);
+			assertThat(visitor.fieldAccess).hasSize(4);
+			assertThat(visitor.addedInterfaces).hasSize(2);
+		}
+
+		@Test
+		void nonGlobalEntriesAreIgnoredWhenGlobalFilterIsSet() throws Exception {
+			String testInput = readTestInput("AccessWidenerReaderTest_global.txt");
+			reader = new AccessWidenerReader(new GlobalOnlyDecorator(visitor));
+			parse(testInput);
+
+			assertWidenerContains("global");
+			assertThat(visitor.classAccess).hasSize(3);
+			assertThat(visitor.methodAccess).hasSize(3);
+			assertThat(visitor.fieldAccess).hasSize(2);
+			assertThat(visitor.addedInterfaces).hasSize(1);
+		}
+
+		private void assertWidenerContains(String prefix) {
+			assertThat(visitor.classAccess).contains(
+					entry(prefix + "/AccessibleClass", AccessWidener.ClassAccess.ACCESSIBLE),
+					entry(prefix + "/ExtendableClass", AccessWidener.ClassAccess.EXTENDABLE),
+					entry(prefix + "/AccessibleExtendableClass", AccessWidener.ClassAccess.ACCESSIBLE_EXTENDABLE)
+			);
+			assertThat(visitor.methodAccess).contains(
+					entry(new EntryTriple(prefix + "/AccessibleClass", "method", "()V"), AccessWidener.MethodAccess.ACCESSIBLE),
+					entry(new EntryTriple(prefix + "/ExtendableClass", "method", "()V"), AccessWidener.MethodAccess.EXTENDABLE),
+					entry(new EntryTriple(prefix + "/AccessibleExtendableClass", "method", "()V"), AccessWidener.MethodAccess.ACCESSIBLE_EXTENDABLE)
+			);
+			assertThat(visitor.fieldAccess).contains(
+					entry(new EntryTriple(prefix + "/AccessibleClass", "finalField", "I"), AccessWidener.FieldAccess.MUTABLE),
+					entry(new EntryTriple(prefix + "/AccessibleClass", "field", "I"), AccessWidener.FieldAccess.ACCESSIBLE)
+			);
+			assertThat(visitor.addedInterfaces).contains(
+					entry(prefix + "/Class", Collections.singleton("my/Interface"))
+			);
+		}
 	}
 
 	private void parse(String content) throws IOException {
@@ -400,5 +470,12 @@ public class AccessWidenerReaderTest {
 				executable
 		);
 		assertEquals(expectedError, e.getMessage());
+	}
+
+	private String readTestInput(String name) throws Exception {
+		URL resource = Objects.requireNonNull(getClass().getResource(name));
+		return new String(Files.readAllBytes(
+				Paths.get(resource.toURI())
+		));
 	}
 }

@@ -16,71 +16,180 @@
 
 package net.fabricmc.accesswidener;
 
-import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
-public final class AccessWidenerWriter {
-	private final AccessWidener accessWidener;
+public final class AccessWidenerWriter implements AccessWidenerReader.Visitor {
+	private String namespace;
 
-	public AccessWidenerWriter(AccessWidener accessWidener) {
-		this.accessWidener = accessWidener;
+	private final List<ClassAccessor> classAccessors = new ArrayList<>();
+	private final List<MethodAccessor> methodAccessors = new ArrayList<>();
+	private final List<FieldAccessor> fieldAccessors = new ArrayList<>();
+	private final List<AddedInterface> addedInterfaces = new ArrayList<>();
+
+	@Override
+	public void visitHeader(String namespace) {
+		if (this.namespace != null && !this.namespace.equals(namespace)) {
+			throw new IllegalArgumentException("Cannot write two different namespaces to the same file ("
+					+ this.namespace + " != " + namespace + ")");
+		}
+
+		this.namespace = namespace;
 	}
 
-	public void write(StringWriter writer) {
-		writer.write("accessWidener\tv1\t");
-		writer.write(accessWidener.namespace);
-		writer.write("\n");
+	@Override
+	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean global) {
+		classAccessors.add(new ClassAccessor(name, access, global));
+	}
 
-		for (Map.Entry<String, AccessWidener.Access> entry : accessWidener.classAccess.entrySet()) {
-			for (String s : getAccesses(entry.getValue())) {
-				writer.write(s);
-				writer.write("\tclass\t");
-				writer.write(entry.getKey());
-				writer.write("\n");
+	@Override
+	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean global) {
+		methodAccessors.add(new MethodAccessor(owner, name, descriptor, access, global));
+	}
+
+	@Override
+	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean global) {
+		fieldAccessors.add(new FieldAccessor(owner, name, descriptor, access, global));
+	}
+
+	@Override
+	public void visitAddInterface(String name, String iface, boolean global) {
+		addedInterfaces.add(new AddedInterface(name, iface, global));
+	}
+
+	public String write() {
+		int version = determineVersion();
+
+		StringBuilder builder = new StringBuilder();
+		builder.append("accessWidener\tv")
+				.append(version)
+				.append('\t')
+				.append(namespace != null ? namespace : "unknown")
+				.append("\n");
+
+		for (ClassAccessor classAccessor : classAccessors) {
+			classAccessor.write(builder, version);
+		}
+
+		for (MethodAccessor methodAccessor : methodAccessors) {
+			methodAccessor.write(builder, version);
+		}
+
+		for (FieldAccessor fieldAccessor : fieldAccessors) {
+			fieldAccessor.write(builder, version);
+		}
+
+		for (AddedInterface addedInterface : addedInterfaces) {
+			addedInterface.write(builder, version);
+		}
+
+		return builder.toString();
+	}
+
+	/**
+	 * Checks which version has to be used based on the features that were used.
+	 */
+	private int determineVersion() {
+		boolean hasGlobal = classAccessors.stream().anyMatch(c -> c.global)
+				|| methodAccessors.stream().anyMatch(m -> m.global)
+				|| fieldAccessors.stream().anyMatch(f -> f.global)
+				|| addedInterfaces.stream().anyMatch(i -> i.global);
+		boolean hasAddedInterfaces = !addedInterfaces.isEmpty();
+
+		if (hasGlobal || hasAddedInterfaces) {
+			return 2;
+		} else {
+			return 1;
+		}
+	}
+
+	private static class ClassAccessor {
+		final String name;
+		final AccessWidenerReader.AccessType access;
+		final boolean global;
+
+		ClassAccessor(String name, AccessWidenerReader.AccessType access, boolean global) {
+			this.name = name;
+			this.access = access;
+			this.global = global;
+		}
+
+		void write(StringBuilder builder, int version) {
+			if (version >= 2 && global) {
+				builder.append("global\t");
 			}
-		}
 
-		for (Map.Entry<EntryTriple, AccessWidener.Access> entry : accessWidener.methodAccess.entrySet()) {
-			writeEntry(writer, "method", entry.getKey(), entry.getValue());
-		}
-
-		for (Map.Entry<EntryTriple, AccessWidener.Access> entry : accessWidener.fieldAccess.entrySet()) {
-			writeEntry(writer, "field", entry.getKey(), entry.getValue());
+			builder.append(access).append("\tclass\t").append(name).append('\n');
 		}
 	}
 
-	private void writeEntry(StringWriter writer, String type, EntryTriple entryTriple, AccessWidener.Access access) {
-		for (String s : getAccesses(access)) {
-			writer.write(s);
-			writer.write("\t");
-			writer.write(type);
-			writer.write("\t");
-			writer.write(entryTriple.getOwner());
-			writer.write("\t");
-			writer.write(entryTriple.getName());
-			writer.write("\t");
-			writer.write(entryTriple.getDesc());
-			writer.write("\n");
+	private static class MethodAccessor {
+		final String owner;
+		final String name;
+		final String descriptor;
+		final AccessWidenerReader.AccessType access;
+		final boolean global;
+
+		MethodAccessor(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean global) {
+			this.owner = owner;
+			this.name = name;
+			this.descriptor = descriptor;
+			this.access = access;
+			this.global = global;
+		}
+
+		void write(StringBuilder builder, int version) {
+			if (version >= 2 && global) {
+				builder.append("global\t");
+			}
+
+			builder.append(access).append("\tmethod\t").append(owner).append('\t').append(name)
+					.append('\t').append(descriptor).append('\n');
 		}
 	}
 
-	private List<String> getAccesses(AccessWidener.Access access) {
-		List<String> accesses = new ArrayList<>();
+	private static class FieldAccessor {
+		final String owner;
+		final String name;
+		final String descriptor;
+		final AccessWidenerReader.AccessType access;
+		final boolean global;
 
-		if (access == AccessWidener.ClassAccess.ACCESSIBLE || access == AccessWidener.MethodAccess.ACCESSIBLE || access == AccessWidener.FieldAccess.ACCESSIBLE || access == AccessWidener.MethodAccess.ACCESSIBLE_EXTENDABLE || access == AccessWidener.ClassAccess.ACCESSIBLE_EXTENDABLE || access == AccessWidener.FieldAccess.ACCESSIBLE_MUTABLE) {
-			accesses.add("accessible");
+		FieldAccessor(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean global) {
+			this.owner = owner;
+			this.name = name;
+			this.descriptor = descriptor;
+			this.access = access;
+			this.global = global;
 		}
 
-		if (access == AccessWidener.ClassAccess.EXTENDABLE || access == AccessWidener.MethodAccess.EXTENDABLE || access == AccessWidener.MethodAccess.ACCESSIBLE_EXTENDABLE || access == AccessWidener.ClassAccess.ACCESSIBLE_EXTENDABLE) {
-			accesses.add("extendable");
+		void write(StringBuilder builder, int version) {
+			if (version >= 2 && global) {
+				builder.append("global\t");
+			}
+
+			builder.append(access).append("\tfield\t").append(owner).append('\t').append(name)
+					.append('\t').append(descriptor).append('\n');
+		}
+	}
+
+	private static class AddedInterface {
+		final String name;
+		final String iface;
+		final boolean global;
+
+		AddedInterface(String name, String iface, boolean global) {
+			this.name = name;
+			this.iface = iface;
+			this.global = global;
 		}
 
-		if (access == AccessWidener.FieldAccess.MUTABLE || access == AccessWidener.FieldAccess.ACCESSIBLE_MUTABLE) {
-			accesses.add("mutable");
-		}
+		void write(StringBuilder builder, int version) {
+			if (version >= 2 && global) {
+				builder.append("global\t");
+			}
 
-		return accesses;
+			builder.append("add-interface\t").append(name).append('\t').append(iface).append('\n');
+		}
 	}
 }

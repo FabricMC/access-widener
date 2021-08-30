@@ -18,16 +18,24 @@ package net.fabricmc.accesswidener;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 public final class AccessWidenerReader {
+	// Also includes some weirdness such as vertical tabs
+	private static final Pattern V1_DELIMITER = Pattern.compile("\\s+");
+	// Only spaces or tabs
+	private static final Pattern V2_DELIMITER = Pattern.compile("[ \\t]+");
+
+	// Access widener format versions
+	private static final int V1 = 1;
+	private static final int V2 = 1;
+
 	private final Visitor visitor;
 
 	private int lineNumber;
-
-	public AccessWidenerReader(AccessWidener accessWidener) {
-		this.visitor = accessWidener;
-	}
 
 	public AccessWidenerReader(Visitor visitor) {
 		this.visitor = visitor;
@@ -45,9 +53,7 @@ public final class AccessWidenerReader {
 			throw error("Invalid access widener file header. Expected: 'accessWidener <version> <namespace>'");
 		}
 
-		if (!header[1].equals("v1")) {
-			throw error("Unsupported access widener format (%s)", header[1]);
-		}
+		int version = parseVersion(header[1]);
 
 		if (currentNamespace != null && !header[2].equals(currentNamespace)) {
 			throw error("Namespace (%s) does not match current runtime namespace (%s)", header[2], currentNamespace);
@@ -57,70 +63,138 @@ public final class AccessWidenerReader {
 
 		String line;
 
+		Pattern delimiter = version < V2 ? V1_DELIMITER : V2_DELIMITER;
+
 		while ((line = reader.readLine()) != null) {
 			lineNumber++;
 
-			//Comment handling
-			int commentPos = line.indexOf('#');
+			line = handleComment(version, line);
 
-			if (commentPos >= 0) {
-				line = line.substring(0, commentPos).trim();
+			if (line.isEmpty()) {
+				continue;
 			}
-
-			if (line.isEmpty()) continue;
 
 			if (Character.isWhitespace(line.codePointAt(0))) {
 				throw error("Leading whitespace is not allowed");
 			}
 
-			String[] split = line.split("\\s+");
+			// Note that this trims trailing spaces. See the docs of split for details.
+			List<String> tokens = Arrays.asList(delimiter.split(line));
 
-			AccessType access = readAccessType(split[0]);
+			boolean global = false;
 
-			if (split.length < 2) {
-				throw error("Expected <class|field|method> following " + split[0]);
+			if (version >= V2) {
+				// Global access widener flag
+				if (!tokens.isEmpty() && tokens.get(0).equals("global")) {
+					tokens = tokens.subList(1, tokens.size());
+					global = true;
+				}
+
+				// Interface injection
+				if (!tokens.isEmpty() && tokens.get(0).equals("add-interface")) {
+					handleInterfaceInjection(tokens, global);
+					continue;
+				}
 			}
 
-			switch (split[1]) {
+			if (tokens.isEmpty()) {
+				throw error("Expected <accessible|extendable|mutable>");
+			}
+
+			AccessType access = readAccessType(tokens.get(0));
+
+			if (tokens.size() < 2) {
+				throw error("Expected <class|field|method> following " + tokens.get(0));
+			}
+
+			switch (tokens.get(1)) {
 			case "class":
-				if (split.length != 3) {
+				if (tokens.size() != 3) {
 					throw error("Expected (<access> class <className>) got (%s)", line);
 				}
 
 				try {
-					visitor.visitClass(split[2], access);
+					visitor.visitClass(tokens.get(2), access, global);
 				} catch (Exception e) {
 					throw error(e.toString());
 				}
 
 				break;
 			case "field":
-				if (split.length != 5) {
+				if (tokens.size() != 5) {
 					throw error("Expected (<access> field <className> <fieldName> <fieldDesc>) got (%s)", line);
 				}
 
 				try {
-					visitor.visitField(split[2], split[3], split[4], access);
+					visitor.visitField(tokens.get(2), tokens.get(3), tokens.get(4), access, global);
 				} catch (Exception e) {
 					throw error(e.toString());
 				}
 
 				break;
 			case "method":
-				if (split.length != 5) {
+				if (tokens.size() != 5) {
 					throw error("Expected (<access> method <className> <methodName> <methodDesc>) got (%s)", line);
 				}
 
 				try {
-					visitor.visitMethod(split[2], split[3], split[4], access);
+					visitor.visitMethod(tokens.get(2), tokens.get(3), tokens.get(4), access, global);
 				} catch (Exception e) {
 					throw error(e.toString());
 				}
 
 				break;
 			default:
-				throw error("Unsupported type " + split[1]);
+				throw error("Unsupported type: '" + tokens.get(1) + "'");
 			}
+		}
+	}
+
+	private void handleInterfaceInjection(List<String> tokens, boolean global) {
+		if (tokens.size() < 2) {
+			throw error("Expected class name following add-interface keyword");
+		}
+
+		String className = tokens.get(1);
+
+		if (tokens.size() < 3) {
+			throw error("Expected interface name following class-name");
+		}
+
+		String interfaceName = tokens.get(2);
+
+		if (tokens.size() > 3) {
+			throw error("Expected no extra text following interface-name");
+		}
+
+		visitor.visitAddInterface(className, interfaceName, global);
+	}
+
+	private String handleComment(int version, String line) {
+		//Comment handling
+		int commentPos = line.indexOf('#');
+
+		if (commentPos >= 0) {
+			line = line.substring(0, commentPos);
+
+			// In V1, trimming led to leading whitespace being tolerated
+			// The tailing whitespace is already stripped by the split below
+			if (version <= V1) {
+				line = line.trim();
+			}
+		}
+
+		return line;
+	}
+
+	private int parseVersion(String versionString) {
+		switch (versionString) {
+		case "v1":
+			return V1;
+		case "v2":
+			return V2;
+		default:
+			throw error("Unsupported access widener format (%s)", versionString);
 		}
 	}
 
@@ -176,8 +250,9 @@ public final class AccessWidenerReader {
 		 *
 		 * @param name   the name of the class
 		 * @param access the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#EXTENDABLE})
+		 * @param global whether this widener should be applied across mod boundaries
 		 */
-		default void visitClass(String name, AccessType access) {
+		default void visitClass(String name, AccessType access, boolean global) {
 		}
 
 		/**
@@ -187,8 +262,9 @@ public final class AccessWidenerReader {
 		 * @param name       the name of the method
 		 * @param descriptor the method descriptor
 		 * @param access     the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#EXTENDABLE})
+		 * @param global     whether this widener should be applied across mod boundaries
 		 */
-		default void visitMethod(String owner, String name, String descriptor, AccessType access) {
+		default void visitMethod(String owner, String name, String descriptor, AccessType access, boolean global) {
 		}
 
 		/**
@@ -198,8 +274,19 @@ public final class AccessWidenerReader {
 		 * @param name       the name of the field
 		 * @param descriptor the type of the field as a type descriptor
 		 * @param access     the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#MUTABLE})
+		 * @param global     whether this widener should be applied across mod boundaries
 		 */
-		default void visitField(String owner, String name, String descriptor, AccessType access) {
+		default void visitField(String owner, String name, String descriptor, AccessType access, boolean global) {
+		}
+
+		/**
+		 * Visits an injected interface.
+		 *
+		 * @param name   the name of the class to add an interface to
+		 * @param iface  the name of the interface to add
+		 * @param global whether this widener should be applied across mod boundaries
+		 */
+		default void visitAddInterface(String name, String iface, boolean global) {
 		}
 	}
 }

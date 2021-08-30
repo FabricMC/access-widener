@@ -17,47 +17,55 @@
 package net.fabricmc.accesswidener;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
-import java.io.StringWriter;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Objects;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class AccessWidenerWriterTest {
-	AccessWidener widener = new AccessWidener();
-
-	@BeforeEach
-	void setup() {
-		widener.visitHeader("somenamespace");
-
-		widener.visitClass("pkg/AccessibleClass", AccessWidenerReader.AccessType.ACCESSIBLE);
-		widener.visitClass("pkg/ExtendableClass", AccessWidenerReader.AccessType.EXTENDABLE);
-		widener.visitClass("pkg/AccessibleExtendableClass", AccessWidenerReader.AccessType.ACCESSIBLE);
-		widener.visitClass("pkg/AccessibleExtendableClass", AccessWidenerReader.AccessType.EXTENDABLE);
-
-		widener.visitMethod("pkg/AccessibleClass", "method", "()V", AccessWidenerReader.AccessType.ACCESSIBLE);
-		widener.visitMethod("pkg/ExtendableClass", "method", "()V", AccessWidenerReader.AccessType.EXTENDABLE);
-		widener.visitMethod("pkg/AccessibleExtendableClass", "method", "()V", AccessWidenerReader.AccessType.ACCESSIBLE);
-		widener.visitMethod("pkg/AccessibleExtendableClass", "method", "()V", AccessWidenerReader.AccessType.EXTENDABLE);
-
-		widener.visitField("pkg/AccessibleClass", "field", "I", AccessWidenerReader.AccessType.ACCESSIBLE);
-		widener.visitField("pkg/AccessibleClass", "finalField", "I", AccessWidenerReader.AccessType.MUTABLE);
-	}
-
 	@Test
 	void testWriteWidenerV1() throws Exception {
 		String expectedContent = readReferenceContent("AccessWidenerWriterTest_v1.txt");
 
-		StringWriter writer = new StringWriter();
-		new AccessWidenerWriter(widener).write(writer);
+		AccessWidenerWriter writer = new AccessWidenerWriter();
+		accept(writer, false);
 
-		assertEquals(expectedContent, writer.toString());
+		assertEquals(expectedContent, writer.write());
+	}
+
+	@Test
+	void testWriteWidenerV2() throws Exception {
+		String expectedContent = readReferenceContent("AccessWidenerWriterTest_v2.txt");
+
+		AccessWidenerWriter writer = new AccessWidenerWriter();
+		accept(writer, true);
+
+		assertEquals(expectedContent, writer.write());
+	}
+
+	@Test
+	void testCanMergeMultipleRunsIntoOneFile() {
+		AccessWidenerWriter writer = new AccessWidenerWriter();
+		writer.visitHeader("ns1");
+		writer.visitClass("SomeClass", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+		writer.visitHeader("ns1");
+		writer.visitClass("SomeClass", AccessWidenerReader.AccessType.EXTENDABLE, false);
+		assertEquals("accessWidener\tv1\tns1\n"
+				+ "accessible\tclass\tSomeClass\n"
+				+ "extendable\tclass\tSomeClass\n", writer.write());
+	}
+
+	@Test
+	void testDoesNotAllowDifferentNamespacesWhenMerging() {
+		AccessWidenerWriter writer = new AccessWidenerWriter();
+		writer.visitHeader("ns1");
+		assertThrows(Exception.class, () -> writer.visitHeader("ns2"));
 	}
 
 	private String readReferenceContent(String name) throws IOException, URISyntaxException {
@@ -66,5 +74,30 @@ class AccessWidenerWriterTest {
 				Paths.get(resource.toURI())
 		));
 		return expectedContent.replace("\r\n", "\n"); // Normalize line endings
+	}
+
+	private void accept(AccessWidenerReader.Visitor visitor, boolean includeV2Content) {
+		visitor.visitHeader("somenamespace");
+
+		visitor.visitClass("pkg/AccessibleClass", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+		visitor.visitClass("pkg/ExtendableClass", AccessWidenerReader.AccessType.EXTENDABLE, false);
+		visitor.visitClass("pkg/AccessibleExtendableClass", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+		visitor.visitClass("pkg/AccessibleExtendableClass", AccessWidenerReader.AccessType.EXTENDABLE, false);
+
+		visitor.visitMethod("pkg/AccessibleClass", "method", "()V", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+		visitor.visitMethod("pkg/ExtendableClass", "method", "()V", AccessWidenerReader.AccessType.EXTENDABLE, false);
+		visitor.visitMethod("pkg/AccessibleExtendableClass", "method", "()V", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+		visitor.visitMethod("pkg/AccessibleExtendableClass", "method", "()V", AccessWidenerReader.AccessType.EXTENDABLE, false);
+
+		visitor.visitField("pkg/AccessibleClass", "field", "I", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+		visitor.visitField("pkg/AccessibleClass", "finalField", "I", AccessWidenerReader.AccessType.MUTABLE, false);
+
+		if (includeV2Content) {
+			visitor.visitClass("pkg/GlobalAccessibleClass", AccessWidenerReader.AccessType.ACCESSIBLE, true);
+			visitor.visitMethod("pkg/GlobalAccessibleClass", "method", "()V", AccessWidenerReader.AccessType.ACCESSIBLE, true);
+			visitor.visitField("pkg/GlobalAccessibleClass", "field", "I", AccessWidenerReader.AccessType.ACCESSIBLE, true);
+			visitor.visitAddInterface("pkg/IfaceClass", "Interface", false);
+			visitor.visitAddInterface("pkg/GlobalIfaceClass", "Interface", true);
+		}
 	}
 }

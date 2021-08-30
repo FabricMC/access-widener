@@ -41,7 +41,7 @@ public class AccessWidenerTest {
 	 */
 	@Test
 	void testParentClassesAreAddedAsTargetsForInnerClasses() {
-		widener.visitClass("a/b/C$IC1$IC2", AccessWidenerReader.AccessType.ACCESSIBLE);
+		widener.visitClass("a/b/C$IC1$IC2", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 		assertThat(widener.getTargets()).containsOnly(
 				"a.b.C",
 				"a.b.C$IC1",
@@ -59,7 +59,7 @@ public class AccessWidenerTest {
 	 */
 	@Test
 	void testClassNameInterpretation() {
-		widener.visitClass("a/b/C", AccessWidenerReader.AccessType.ACCESSIBLE);
+		widener.visitClass("a/b/C", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 		assertThat(widener.getTargets()).containsOnly("a.b.C");
 		assertEquals(AccessWidener.ClassAccess.ACCESSIBLE, widener.getClassAccess("a/b/C"));
 	}
