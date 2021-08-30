@@ -16,39 +16,37 @@
 
 package net.fabricmc.accesswidener;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.LineNumberReader;
-import java.io.Reader;
 import java.util.Locale;
 
 public final class AccessWidenerReader {
 	private final Visitor visitor;
 
+	private int lineNumber;
+
 	public AccessWidenerReader(Visitor visitor) {
 		this.visitor = visitor;
 	}
 
-	public void read(Reader reader) throws IOException {
+	public void read(BufferedReader reader) throws IOException {
 		this.read(reader, null);
 	}
 
-	public void read(Reader reader, String currentNamespace) throws IOException {
-		read(new LineNumberReader(reader), currentNamespace);
-	}
-
-	private void read(LineNumberReader reader, String currentNamespace) throws IOException {
+	public void read(BufferedReader reader, String currentNamespace) throws IOException {
 		String[] header = reader.readLine().split("\\s+");
+		lineNumber = 1;
 
 		if (header.length != 3 || !header[0].equals("accessWidener")) {
-			throw error(reader, "Invalid access widener file header. Expected: 'accessWidener <version> <namespace>'");
+			throw error("Invalid access widener file header. Expected: 'accessWidener <version> <namespace>'");
 		}
 
 		if (!header[1].equals("v1")) {
-			throw error(reader, "Unsupported access widener format (%s)", header[1]);
+			throw error("Unsupported access widener format (%s)", header[1]);
 		}
 
 		if (currentNamespace != null && !header[2].equals(currentNamespace)) {
-			throw error(reader, "Namespace (%s) does not match current runtime namespace (%s)", header[2], currentNamespace);
+			throw error("Namespace (%s) does not match current runtime namespace (%s)", header[2], currentNamespace);
 		}
 
 		visitor.visitHeader(header[2]);
@@ -56,6 +54,8 @@ public final class AccessWidenerReader {
 		String line;
 
 		while ((line = reader.readLine()) != null) {
+			lineNumber++;
+
 			//Comment handling
 			int commentPos = line.indexOf('#');
 
@@ -66,61 +66,61 @@ public final class AccessWidenerReader {
 			if (line.isEmpty()) continue;
 
 			if (Character.isWhitespace(line.codePointAt(0))) {
-				throw error(reader, "Leading whitespace is not allowed");
+				throw error("Leading whitespace is not allowed");
 			}
 
 			String[] split = line.split("\\s+");
 
-			AccessType access = readAccessType(reader, split[0]);
+			AccessType access = readAccessType(split[0]);
 
 			if (split.length < 2) {
-				throw error(reader, "Expected <class|field|method> following " + split[0]);
+				throw error("Expected <class|field|method> following " + split[0]);
 			}
 
 			switch (split[1]) {
 			case "class":
 				if (split.length != 3) {
-					throw error(reader, "Expected (<access> class <className>) got (%s)", line);
+					throw error("Expected (<access> class <className>) got (%s)", line);
 				}
 
 				try {
 					visitor.visitClass(split[2], access);
 				} catch (Exception e) {
-					throw error(reader, e.toString());
+					throw error(e.toString());
 				}
 
 				break;
 			case "field":
 				if (split.length != 5) {
-					throw error(reader, "Expected (<access> field <className> <fieldName> <fieldDesc>) got (%s)", line);
+					throw error("Expected (<access> field <className> <fieldName> <fieldDesc>) got (%s)", line);
 				}
 
 				try {
 					visitor.visitField(split[2], split[3], split[4], access);
 				} catch (Exception e) {
-					throw error(reader, e.toString());
+					throw error(e.toString());
 				}
 
 				break;
 			case "method":
 				if (split.length != 5) {
-					throw error(reader, "Expected (<access> method <className> <methodName> <methodDesc>) got (%s)", line);
+					throw error("Expected (<access> method <className> <methodName> <methodDesc>) got (%s)", line);
 				}
 
 				try {
 					visitor.visitMethod(split[2], split[3], split[4], access);
 				} catch (Exception e) {
-					throw error(reader, e.toString());
+					throw error(e.toString());
 				}
 
 				break;
 			default:
-				throw error(reader, "Unsupported type " + split[1]);
+				throw error("Unsupported type " + split[1]);
 			}
 		}
 	}
 
-	private static AccessType readAccessType(LineNumberReader reader, String access) {
+	private AccessType readAccessType(String access) {
 		switch (access.toLowerCase(Locale.ROOT)) {
 		case "accessible":
 			return AccessType.ACCESSIBLE;
@@ -129,7 +129,7 @@ public final class AccessWidenerReader {
 		case "mutable":
 			return AccessType.MUTABLE;
 		default:
-			throw error(reader, "Unknown access type: " + access);
+			throw error("Unknown access type: " + access);
 		}
 	}
 
@@ -150,12 +150,12 @@ public final class AccessWidenerReader {
 		}
 	}
 
-	private static AccessWidenerFormatException error(LineNumberReader reader, String format, Object... args) {
+	private AccessWidenerFormatException error(String format, Object... args) {
 		// Note that getLineNumber is actually 1 line after the current line position,
 		// because it is 0-based. But since our reporting here is 1-based, it works out.
 		// If this class ever starts reading lines incrementally however, it'd need to be changed.
 		String message = String.format(Locale.ROOT, format, args);
-		return new AccessWidenerFormatException(reader.getLineNumber(), message);
+		return new AccessWidenerFormatException(lineNumber, message);
 	}
 
 	public interface Visitor {

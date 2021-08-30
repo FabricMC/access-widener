@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.entry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.Arrays;
@@ -42,7 +43,7 @@ public class AccessWidenerReaderTest {
 		public void throwsOnInvalidFileHeader() {
 			assertFormatError(
 					"Invalid access widener file header. Expected: 'accessWidener <version> <namespace>'",
-					() -> reader.read(new StringReader("accessWidenerX junk junk\nxxx"))
+					() -> parse("accessWidenerX junk junk\nxxx")
 			);
 		}
 
@@ -50,28 +51,29 @@ public class AccessWidenerReaderTest {
 		public void throwsOnUnsupportedVersion() {
 			assertFormatError(
 					"Unsupported access widener format (v99)",
-					() -> reader.read(new StringReader("accessWidener v99 junk\nxxx"))
+					() -> parse("accessWidener v99 junk\nxxx")
 			);
 		}
 
 		@Test
 		public void throwsOnUnsupportedNamespaceIfNamespaceSet() {
-			assertFormatError(
-					"Namespace (junk) does not match current runtime namespace (expectedNamespace)",
-					() -> reader.read(new StringReader("accessWidener v1 junk\nxxx"), "expectedNamespace")
+			AccessWidenerFormatException e = assertThrows(
+					AccessWidenerFormatException.class,
+					() -> reader.read(new BufferedReader(new StringReader("accessWidener v1 junk\nxxx")), "expectedNamespace")
 			);
+			assertThat(e).hasMessageContaining("Namespace (junk) does not match current runtime namespace (expectedNamespace)");
 		}
 
 		@Test
 		public void acceptsMatchingNamespaceIfNamespaceSet() throws IOException {
-			reader.read(new StringReader("accessWidener v1 expectedNamespace"), "expectedNamespace");
+			reader.read(new BufferedReader(new StringReader("accessWidener v1 expectedNamespace")), "expectedNamespace");
 			assertEquals("expectedNamespace", visitor.getNamespace());
 			assertEquals(Collections.emptySet(), visitor.classes);
 		}
 
 		@Test
 		public void acceptsAnyNamespaceIfNoNamespaceSet() throws IOException {
-			reader.read(new StringReader("accessWidener v1 anyWeirdNamespace"));
+			parse("accessWidener v1 anyWeirdNamespace");
 			assertEquals("anyWeirdNamespace", visitor.getNamespace());
 			assertEquals(Collections.emptySet(), visitor.classes);
 		}
@@ -83,7 +85,7 @@ public class AccessWidenerReaderTest {
 		void testThrowsOnMissingTokensInLine() {
 			assertFormatError(
 					"Expected (<access> class <className>) got (accessible class)",
-					() -> parse("accessible class")
+					() -> parseLines("accessible class")
 			);
 		}
 
@@ -91,7 +93,7 @@ public class AccessWidenerReaderTest {
 		void testThrowsOnExtraTokensInLine() {
 			assertFormatError(
 					"Expected (<access> class <className>) got (accessible class Class extra)",
-					() -> parse("accessible class Class extra")
+					() -> parseLines("accessible class Class extra")
 			);
 		}
 
@@ -99,7 +101,7 @@ public class AccessWidenerReaderTest {
 		void testThrowsOnMutableClass() {
 			assertFormatError(
 					"java.lang.UnsupportedOperationException: Classes cannot be made mutable",
-					() -> parse("mutable class Class")
+					() -> parseLines("mutable class Class")
 			);
 		}
 
@@ -124,7 +126,7 @@ public class AccessWidenerReaderTest {
 			String lines = Arrays.stream(keyword)
 					.map(kw -> kw + " class some/test/Class")
 					.collect(Collectors.joining("\n"));
-			parse(lines);
+			parseLines(lines);
 
 			assertThat(visitor.classes).containsOnly("some.test.Class");
 			assertThat(visitor.classAccess).containsOnly(entry("some/test/Class", expectedAccess));
@@ -139,15 +141,15 @@ public class AccessWidenerReaderTest {
 		void testThrowsOnMissingTokensInLine() {
 			assertFormatError(
 					"Expected (<access> field <className> <fieldName> <fieldDesc>) got (accessible field)",
-					() -> parse("accessible field")
+					() -> parseLines("accessible field")
 			);
 			assertFormatError(
 					"Expected (<access> field <className> <fieldName> <fieldDesc>) got (accessible field Class)",
-					() -> parse("accessible field Class")
+					() -> parseLines("accessible field Class")
 			);
 			assertFormatError(
 					"Expected (<access> field <className> <fieldName> <fieldDesc>) got (accessible field Class Field)",
-					() -> parse("accessible field Class Field")
+					() -> parseLines("accessible field Class Field")
 			);
 		}
 
@@ -155,7 +157,7 @@ public class AccessWidenerReaderTest {
 		void testThrowsOnExtraTokensInLine() {
 			assertFormatError(
 					"Expected (<access> field <className> <fieldName> <fieldDesc>) got (accessible field Class field I extra)",
-					() -> parse("accessible field Class field I extra")
+					() -> parseLines("accessible field Class field I extra")
 			);
 		}
 
@@ -163,7 +165,7 @@ public class AccessWidenerReaderTest {
 		void testThrowsOnExtendableField() {
 			assertFormatError(
 					"java.lang.UnsupportedOperationException: Fields cannot be made extendable",
-					() -> parse("extendable field Class field I")
+					() -> parseLines("extendable field Class field I")
 			);
 		}
 
@@ -208,7 +210,7 @@ public class AccessWidenerReaderTest {
 			String lines = Arrays.stream(keyword)
 					.map(kw -> kw + " field some/test/Class someField I")
 					.collect(Collectors.joining("\n"));
-			parse(lines);
+			parseLines(lines);
 
 			assertThat(visitor.classes).containsOnly("some.test.Class");
 
@@ -233,15 +235,15 @@ public class AccessWidenerReaderTest {
 		void testThrowsOnMissingTokensInLine() {
 			assertFormatError(
 					"Expected (<access> method <className> <methodName> <methodDesc>) got (accessible method)",
-					() -> parse("accessible method")
+					() -> parseLines("accessible method")
 			);
 			assertFormatError(
 					"Expected (<access> method <className> <methodName> <methodDesc>) got (accessible method Method)",
-					() -> parse("accessible method Method")
+					() -> parseLines("accessible method Method")
 			);
 			assertFormatError(
 					"Expected (<access> method <className> <methodName> <methodDesc>) got (accessible method Class Method)",
-					() -> parse("accessible method Class Method")
+					() -> parseLines("accessible method Class Method")
 			);
 		}
 
@@ -249,7 +251,7 @@ public class AccessWidenerReaderTest {
 		void testThrowsOnExtraTokensInLine() {
 			assertFormatError(
 					"Expected (<access> method <className> <methodName> <methodDesc>) got (accessible method Method method ()V extra)",
-					() -> parse("accessible method Method method ()V extra")
+					() -> parseLines("accessible method Method method ()V extra")
 			);
 		}
 
@@ -257,7 +259,7 @@ public class AccessWidenerReaderTest {
 		void testThrowsOnMutableMethod() {
 			assertFormatError(
 					"java.lang.UnsupportedOperationException: Methods cannot be made mutable",
-					() -> parse("mutable method Class method ()V")
+					() -> parseLines("mutable method Class method ()V")
 			);
 		}
 
@@ -303,7 +305,7 @@ public class AccessWidenerReaderTest {
 			String lines = Arrays.stream(keyword)
 					.map(kw -> kw + " method some/test/Class someMethod ()V")
 					.collect(Collectors.joining("\n"));
-			parse(lines);
+			parseLines(lines);
 
 			assertThat(visitor.classes).containsOnly("some.test.Class");
 
@@ -327,7 +329,7 @@ public class AccessWidenerReaderTest {
 		@Test
 		public void testCorrectLineNumbersInPresenceOfComments() {
 			int lineNumber = assertThrows(AccessWidenerFormatException.class,
-					() -> reader.read(new StringReader("accessWidener v1 namespace\n\n# comment\n\nERROR"))
+					() -> reader.read(new BufferedReader(new StringReader("accessWidener v1 namespace\n\n# comment\n\nERROR")))
 			).getLineNumber();
 			assertEquals(5, lineNumber);
 		}
@@ -336,7 +338,7 @@ public class AccessWidenerReaderTest {
 		public void throwsOnUnknownAccessType() {
 			assertFormatError(
 					"Unknown access type: somecommand",
-					() -> parse("somecommand")
+					() -> parseLines("somecommand")
 			);
 		}
 
@@ -344,7 +346,7 @@ public class AccessWidenerReaderTest {
 		public void throwsOnMissingTypeAfterAccessible() {
 			assertFormatError(
 					"Expected <class|field|method> following accessible",
-					() -> parse("accessible")
+					() -> parseLines("accessible")
 			);
 		}
 
@@ -352,7 +354,7 @@ public class AccessWidenerReaderTest {
 		public void throwsOnInvalidTypeAfterAccessible() {
 			assertFormatError(
 					"Unsupported type blergh",
-					() -> parse("accessible blergh")
+					() -> parseLines("accessible blergh")
 			);
 		}
 
@@ -360,36 +362,43 @@ public class AccessWidenerReaderTest {
 		public void throwsWithLeadingWhitespace() {
 			assertFormatError(
 					"Leading whitespace is not allowed",
-					() -> parse("   accessible class SomeClass")
+					() -> parseLines("   accessible class SomeClass")
 			);
 		}
 
 		// This is a quirk in access-widener v1
 		@Test
 		public void testLeadingWhitespaceWithLineComment() throws IOException {
-			parse("   accessible class SomeClass #linecomment");
+			parseLines("   accessible class SomeClass #linecomment");
 			assertThat(visitor.classes).containsOnly("SomeClass");
 		}
 
 		@Test
 		public void testTrailingWhitespace() throws IOException {
-			parse("accessible class SomeClass    ");
+			parseLines("accessible class SomeClass    ");
 			assertThat(visitor.classes).containsOnly("SomeClass");
 		}
 
 		@Test
 		public void testCanParseWithTabSeparators() throws IOException {
-			parse("accessible\tclass\tSomeName");
+			parseLines("accessible\tclass\tSomeName");
 			assertThat(visitor.classes).containsOnly("SomeName");
 		}
 	}
 
-	private void parse(String line) throws IOException {
-		reader.read(new StringReader("accessWidener v1 namespace\n" + line));
+	private void parse(String content) throws IOException {
+		reader.read(new BufferedReader(new StringReader(content)));
 	}
 
-	private void assertFormatError(String expectedError, Executable r) {
-		AccessWidenerFormatException e = assertThrows(AccessWidenerFormatException.class, r);
+	private void parseLines(String line) throws IOException {
+		parse("accessWidener v1 namespace\n" + line);
+	}
+
+	private void assertFormatError(String expectedError, Executable executable) {
+		AccessWidenerFormatException e = assertThrows(
+				AccessWidenerFormatException.class,
+				executable
+		);
 		assertEquals(expectedError, e.getMessage());
 	}
 }
