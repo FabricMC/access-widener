@@ -25,6 +25,10 @@ public final class AccessWidenerReader {
 
 	private int lineNumber;
 
+	public AccessWidenerReader(AccessWidener accessWidener) {
+		this.visitor = accessWidener;
+	}
+
 	public AccessWidenerReader(Visitor visitor) {
 		this.visitor = visitor;
 	}
