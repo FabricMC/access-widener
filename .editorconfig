@@ -1,5 +1,9 @@
-[*.gradle]
+[*.{gradle,java}]
 indent_style = tab
-
-[*.java]
-indent_style = tab
+ij_continuation_indent_size = 8
+ij_java_imports_layout = $*,|,java.**,|,javax.**,|,*,|,net.fabricmc.**
+ij_java_class_count_to_use_import_on_demand = 999
+ij_java_indent_case_from_switch = false
+ij_any_align_multiline_parameters = false
+ij_java_method_parameters_new_line_after_left_paren = true
+ij_java_method_parameters_right_paren_on_new_line = true

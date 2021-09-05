@@ -25,14 +25,22 @@ public final class AccessWidenerRemapper {
 	private final String to;
 	private final Remapper remapper;
 
+	/**
+	 * @param input The access widener to remap. It will not be modified.
+	 * @param to    The namespace that the access widener will be remapped to by the given remapper.
+	 */
 	public AccessWidenerRemapper(AccessWidener input, Remapper remapper, String to) {
 		this.input = input;
 		this.to = to;
 		this.remapper = remapper;
 	}
 
+	/**
+	 * @return Either the original access widener if no remapping is necessary, or a new access widener that contains
+	 * remapped names.
+	 */
 	public AccessWidener remap() {
-		//Dont remap if we dont need to
+		// Dont remap if we dont need to
 		if (input.namespace.equals(to)) {
 			return input;
 		}

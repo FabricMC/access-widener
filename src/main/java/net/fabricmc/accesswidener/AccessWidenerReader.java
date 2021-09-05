@@ -23,6 +23,8 @@ import java.util.Locale;
 public final class AccessWidenerReader {
 	private final Visitor visitor;
 
+	private int lineNumber;
+
 	public AccessWidenerReader(AccessWidener accessWidener) {
 		this.visitor = accessWidener;
 	}
@@ -37,17 +39,18 @@ public final class AccessWidenerReader {
 
 	public void read(BufferedReader reader, String currentNamespace) throws IOException {
 		String[] header = reader.readLine().split("\\s+");
+		lineNumber = 1;
 
 		if (header.length != 3 || !header[0].equals("accessWidener")) {
-			throw new UnsupportedOperationException("Invalid access access widener file");
+			throw error("Invalid access widener file header. Expected: 'accessWidener <version> <namespace>'");
 		}
 
 		if (!header[1].equals("v1")) {
-			throw new RuntimeException(String.format("Unsupported access widener format (%s)", header[1]));
+			throw error("Unsupported access widener format (%s)", header[1]);
 		}
 
 		if (currentNamespace != null && !header[2].equals(currentNamespace)) {
-			throw new RuntimeException(String.format("Namespace (%s) does not match current runtime namespace (%s)", header[2], currentNamespace));
+			throw error("Namespace (%s) does not match current runtime namespace (%s)", header[2], currentNamespace);
 		}
 
 		visitor.visitHeader(header[2]);
@@ -55,6 +58,8 @@ public final class AccessWidenerReader {
 		String line;
 
 		while ((line = reader.readLine()) != null) {
+			lineNumber++;
+
 			//Comment handling
 			int commentPos = line.indexOf('#');
 
@@ -64,43 +69,62 @@ public final class AccessWidenerReader {
 
 			if (line.isEmpty()) continue;
 
-			String[] split = line.split("\\s+");
-
-			if (split.length != 3 && split.length != 5) {
-				throw new RuntimeException(String.format("Invalid line (%s)", line));
+			if (Character.isWhitespace(line.codePointAt(0))) {
+				throw error("Leading whitespace is not allowed");
 			}
 
+			String[] split = line.split("\\s+");
+
 			AccessType access = readAccessType(split[0]);
+
+			if (split.length < 2) {
+				throw error("Expected <class|field|method> following " + split[0]);
+			}
 
 			switch (split[1]) {
 			case "class":
 				if (split.length != 3) {
-					throw new RuntimeException(String.format("Expected (<access>\tclass\t<className>) got (%s)", line));
+					throw error("Expected (<access> class <className>) got (%s)", line);
 				}
 
-				visitor.visitClass(split[2], access);
+				try {
+					visitor.visitClass(split[2], access);
+				} catch (Exception e) {
+					throw error(e.toString());
+				}
+
 				break;
 			case "field":
 				if (split.length != 5) {
-					throw new RuntimeException(String.format("Expected (<access>\tfield\t<className>\t<fieldName>\t<fieldDesc>) got (%s)", line));
+					throw error("Expected (<access> field <className> <fieldName> <fieldDesc>) got (%s)", line);
 				}
 
-				visitor.visitField(split[2], split[3], split[4], access);
+				try {
+					visitor.visitField(split[2], split[3], split[4], access);
+				} catch (Exception e) {
+					throw error(e.toString());
+				}
+
 				break;
 			case "method":
 				if (split.length != 5) {
-					throw new RuntimeException(String.format("Expected (<access>\tmethod\t<className>\t<methodName>\t<methodDesc>) got (%s)", line));
+					throw error("Expected (<access> method <className> <methodName> <methodDesc>) got (%s)", line);
 				}
 
-				visitor.visitMethod(split[2], split[3], split[4], access);
+				try {
+					visitor.visitMethod(split[2], split[3], split[4], access);
+				} catch (Exception e) {
+					throw error(e.toString());
+				}
+
 				break;
 			default:
-				throw new UnsupportedOperationException("Unsupported type " + split[1]);
+				throw error("Unsupported type " + split[1]);
 			}
 		}
 	}
 
-	private static AccessType readAccessType(String access) {
+	private AccessType readAccessType(String access) {
 		switch (access.toLowerCase(Locale.ROOT)) {
 		case "accessible":
 			return AccessType.ACCESSIBLE;
@@ -109,7 +133,7 @@ public final class AccessWidenerReader {
 		case "mutable":
 			return AccessType.MUTABLE;
 		default:
-			throw new IllegalArgumentException("Unknown access type: " + access);
+			throw error("Unknown access type: " + access);
 		}
 	}
 
@@ -128,6 +152,14 @@ public final class AccessWidenerReader {
 		public String toString() {
 			return id;
 		}
+	}
+
+	private AccessWidenerFormatException error(String format, Object... args) {
+		// Note that getLineNumber is actually 1 line after the current line position,
+		// because it is 0-based. But since our reporting here is 1-based, it works out.
+		// If this class ever starts reading lines incrementally however, it'd need to be changed.
+		String message = String.format(Locale.ROOT, format, args);
+		return new AccessWidenerFormatException(lineNumber, message);
 	}
 
 	public interface Visitor {
