@@ -32,9 +32,12 @@ import java.util.Collections;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 public class AccessWidenerReaderTest {
 	AccessWidener visitor = new AccessWidener();
@@ -394,6 +397,44 @@ public class AccessWidenerReaderTest {
 			parseLines("accessible \tclass\t\t SomeName");
 			assertThat(visitor.classes).containsOnly("SomeName");
 		}
+
+		@Test
+		void allowsMalformedClassNameInNonStrictMode() throws IOException {
+			parseLines("accessible class some.Class");
+			assertThat(visitor.classes).containsOnly("some.Class");
+		}
+	}
+
+	@Nested
+	class StrictModeParsing {
+		@BeforeEach
+		void setupReader() {
+			reader.setStrictMode(true);
+		}
+
+		@ParameterizedTest
+		@CsvSource({
+				"accessible class some.Class",
+				"accessible method some.Class method ()V",
+				"accessible field some.Class field I",
+				"add-interface some.Class some/Interface",
+		})
+		void throwsOnMalformedClassName(String line) {
+			reader.setStrictMode(true);
+			assertFormatError(
+					"Class-names must be specified as a/b/C, not a.b.C, but found: some.Class",
+					() -> parseLines(line)
+			);
+		}
+
+		@Test
+		void throwsOnMalformedInterfaceName() {
+			reader.setStrictMode(true);
+			assertFormatError(
+					"Class-names must be specified as a/b/C, not a.b.C, but found: some.Interface",
+					() -> parseLines("add-interface some/Class some.Interface")
+			);
+		}
 	}
 
 	/**
@@ -433,6 +474,30 @@ public class AccessWidenerReaderTest {
 			assertThat(visitor.methodAccess).hasSize(3);
 			assertThat(visitor.fieldAccess).hasSize(2);
 			assertThat(visitor.addedInterfaces).hasSize(1);
+		}
+
+		@Test
+		void throwsOnAddInterfaceMissingClassName() {
+			assertFormatError(
+					"Expected class name following add-interface keyword",
+					() -> parseLines("add-interface")
+			);
+		}
+
+		@Test
+		void throwsOnAddInterfaceMissingInterfaceName() {
+			assertFormatError(
+					"Expected interface name following class-name",
+					() -> parseLines("add-interface some/Class")
+			);
+		}
+
+		@Test
+		void throwsOnAddInterfaceTrailingText() {
+			assertFormatError(
+					"Expected no extra text following interface-name",
+					() -> parseLines("add-interface some/Class some/Interface extra")
+			);
 		}
 
 		private void assertWidenerContains(String prefix) {

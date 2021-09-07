@@ -36,7 +36,7 @@ class AccessWidenerWriterTest {
 		AccessWidenerWriter writer = new AccessWidenerWriter();
 		accept(writer, false);
 
-		assertEquals(expectedContent, writer.write());
+		assertEquals(expectedContent, writer.writeString());
 	}
 
 	@Test
@@ -46,7 +46,7 @@ class AccessWidenerWriterTest {
 		AccessWidenerWriter writer = new AccessWidenerWriter();
 		accept(writer, true);
 
-		assertEquals(expectedContent, writer.write());
+		assertEquals(expectedContent, writer.writeString());
 	}
 
 	@Test
@@ -58,7 +58,7 @@ class AccessWidenerWriterTest {
 		writer.visitClass("SomeClass", AccessWidenerReader.AccessType.EXTENDABLE, false);
 		assertEquals("accessWidener\tv1\tns1\n"
 				+ "accessible\tclass\tSomeClass\n"
-				+ "extendable\tclass\tSomeClass\n", writer.write());
+				+ "extendable\tclass\tSomeClass\n", writer.writeString());
 	}
 
 	@Test

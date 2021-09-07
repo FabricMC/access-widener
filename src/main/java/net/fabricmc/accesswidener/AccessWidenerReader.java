@@ -18,12 +18,17 @@ package net.fabricmc.accesswidener;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.StringReader;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
 public final class AccessWidenerReader {
+	public static final Charset ENCODING = StandardCharsets.UTF_8;
+
 	// Also includes some weirdness such as vertical tabs
 	private static final Pattern V1_DELIMITER = Pattern.compile("\\s+");
 	// Only spaces or tabs
@@ -37,12 +42,32 @@ public final class AccessWidenerReader {
 
 	private int lineNumber;
 
+	private boolean strictMode;
+
 	public AccessWidenerReader(Visitor visitor) {
 		this.visitor = visitor;
 	}
 
+	public void setStrictMode(boolean strictMode) {
+		this.strictMode = strictMode;
+	}
+
+	public void read(byte[] content) {
+		read(content, null);
+	}
+
+	public void read(byte[] content, String currentNamespace) {
+		String strContent = new String(content, ENCODING);
+
+		try {
+			read(new BufferedReader(new StringReader(strContent)), currentNamespace);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
 	public void read(BufferedReader reader) throws IOException {
-		this.read(reader, null);
+		read(reader, null);
 	}
 
 	public void read(BufferedReader reader, String currentNamespace) throws IOException {
@@ -109,44 +134,68 @@ public final class AccessWidenerReader {
 
 			switch (tokens.get(1)) {
 			case "class":
-				if (tokens.size() != 3) {
-					throw error("Expected (<access> class <className>) got (%s)", line);
-				}
-
-				try {
-					visitor.visitClass(tokens.get(2), access, global);
-				} catch (Exception e) {
-					throw error(e.toString());
-				}
-
+				handleClassAccessor(line, tokens, global, access);
 				break;
 			case "field":
-				if (tokens.size() != 5) {
-					throw error("Expected (<access> field <className> <fieldName> <fieldDesc>) got (%s)", line);
-				}
-
-				try {
-					visitor.visitField(tokens.get(2), tokens.get(3), tokens.get(4), access, global);
-				} catch (Exception e) {
-					throw error(e.toString());
-				}
-
+				handleFieldAccessor(line, tokens, global, access);
 				break;
 			case "method":
-				if (tokens.size() != 5) {
-					throw error("Expected (<access> method <className> <methodName> <methodDesc>) got (%s)", line);
-				}
-
-				try {
-					visitor.visitMethod(tokens.get(2), tokens.get(3), tokens.get(4), access, global);
-				} catch (Exception e) {
-					throw error(e.toString());
-				}
-
+				handleMethodAccessor(line, tokens, global, access);
 				break;
 			default:
 				throw error("Unsupported type: '" + tokens.get(1) + "'");
 			}
+		}
+	}
+
+	private void handleClassAccessor(String line, List<String> tokens, boolean global, AccessType access) {
+		if (tokens.size() != 3) {
+			throw error("Expected (<access> class <className>) got (%s)", line);
+		}
+
+		String name = tokens.get(2);
+		validateClassName(name);
+
+		try {
+			visitor.visitClass(name, access, global);
+		} catch (Exception e) {
+			throw error(e.toString());
+		}
+	}
+
+	private void handleFieldAccessor(String line, List<String> tokens, boolean global, AccessType access) {
+		if (tokens.size() != 5) {
+			throw error("Expected (<access> field <className> <fieldName> <fieldDesc>) got (%s)", line);
+		}
+
+		String owner = tokens.get(2);
+		String fieldName = tokens.get(3);
+		String descriptor = tokens.get(4);
+
+		validateClassName(owner);
+
+		try {
+			visitor.visitField(owner, fieldName, descriptor, access, global);
+		} catch (Exception e) {
+			throw error(e.toString());
+		}
+	}
+
+	private void handleMethodAccessor(String line, List<String> tokens, boolean global, AccessType access) {
+		if (tokens.size() != 5) {
+			throw error("Expected (<access> method <className> <methodName> <methodDesc>) got (%s)", line);
+		}
+
+		String owner = tokens.get(2);
+		String methodName = tokens.get(3);
+		String descriptor = tokens.get(4);
+
+		validateClassName(owner);
+
+		try {
+			visitor.visitMethod(owner, methodName, descriptor, access, global);
+		} catch (Exception e) {
+			throw error(e.toString());
 		}
 	}
 
@@ -156,12 +205,14 @@ public final class AccessWidenerReader {
 		}
 
 		String className = tokens.get(1);
+		validateClassName(className);
 
 		if (tokens.size() < 3) {
 			throw error("Expected interface name following class-name");
 		}
 
 		String interfaceName = tokens.get(2);
+		validateClassName(interfaceName);
 
 		if (tokens.size() > 3) {
 			throw error("Expected no extra text following interface-name");
@@ -234,6 +285,13 @@ public final class AccessWidenerReader {
 		// If this class ever starts reading lines incrementally however, it'd need to be changed.
 		String message = String.format(Locale.ROOT, format, args);
 		return new AccessWidenerFormatException(lineNumber, message);
+	}
+
+	private void validateClassName(String className) {
+		// Common mistake is using periods to separate packages/class names
+		if (strictMode && className.contains(".")) {
+			throw error("Class-names must be specified as a/b/C, not a.b.C, but found: %s", className);
+		}
 	}
 
 	public interface Visitor {

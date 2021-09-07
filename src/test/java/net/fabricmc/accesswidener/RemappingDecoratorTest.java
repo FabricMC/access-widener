@@ -29,6 +29,7 @@ import java.util.Objects;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.commons.Remapper;
 import org.objectweb.asm.commons.SimpleRemapper;
 
 class RemappingDecoratorTest {
@@ -46,23 +47,28 @@ class RemappingDecoratorTest {
 		remapper = new SimpleRemapper(mappings);
 	}
 
+	Remapper getRemapper(String from, String to) {
+		assertEquals("original_namespace", from);
+		return remapper;
+	}
+
 	@Test
 	void testRemappingForDifferentNamespace() throws Exception {
 		AccessWidenerWriter writer = new AccessWidenerWriter();
-		accept(new RemappingDecorator(writer, remapper, "different_namespace"));
-		assertEquals(readReferenceContent("Remapped.txt"), writer.write());
+		accept(new RemappingDecorator(writer, this::getRemapper, "different_namespace"));
+		assertEquals(readReferenceContent("Remapped.txt"), writer.writeString());
 	}
 
 	@Test
 	void testNoRemappingForSameNamespace() {
 		AccessWidenerWriter remappedWriter = new AccessWidenerWriter();
-		accept(new RemappingDecorator(remappedWriter, remapper, "original_namespace"));
+		accept(new RemappingDecorator(remappedWriter, this::getRemapper, "original_namespace"));
 
 		// Write out the same stream without a remapper and check it's the same
 		AccessWidenerWriter writer = new AccessWidenerWriter();
 		accept(writer);
 
-		assertEquals(writer.write(), remappedWriter.write());
+		assertEquals(writer.writeString(), remappedWriter.writeString());
 	}
 
 	void accept(AccessWidenerReader.Visitor visitor) {

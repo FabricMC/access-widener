@@ -57,7 +57,11 @@ public final class AccessWidenerWriter implements AccessWidenerReader.Visitor {
 		addedInterfaces.add(new AddedInterface(name, iface, global));
 	}
 
-	public String write() {
+	public byte[] write() {
+		return writeString().getBytes(AccessWidenerReader.ENCODING);
+	}
+
+	public String writeString() {
 		int version = determineVersion();
 
 		StringBuilder builder = new StringBuilder();
