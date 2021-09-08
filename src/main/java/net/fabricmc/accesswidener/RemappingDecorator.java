@@ -57,34 +57,34 @@ public final class RemappingDecorator implements AccessWidenerReader.Visitor {
 	}
 
 	@Override
-	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean global) {
+	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
 		if (remapper != null) {
 			name = remapper.map(name);
 		}
 
-		delegate.visitClass(name, access, global);
+		delegate.visitClass(name, access, transitive);
 	}
 
 	@Override
-	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean global) {
+	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
 		if (remapper != null) {
 			name = remapper.mapMethodName(owner, name, descriptor);
 			descriptor = remapper.mapDesc(descriptor);
 			owner = remapper.map(owner);
 		}
 
-		delegate.visitMethod(owner, name, descriptor, access, global);
+		delegate.visitMethod(owner, name, descriptor, access, transitive);
 	}
 
 	@Override
-	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean global) {
+	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
 		if (remapper != null) {
 			name = remapper.mapFieldName(owner, name, descriptor);
 			descriptor = remapper.mapDesc(descriptor);
 			owner = remapper.map(owner);
 		}
 
-		delegate.visitField(owner, name, descriptor, access, global);
+		delegate.visitField(owner, name, descriptor, access, transitive);
 	}
 
 	@FunctionalInterface
