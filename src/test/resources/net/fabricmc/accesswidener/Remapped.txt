@@ -1,6 +1,5 @@
-accessWidener	v2	different_namespace
+accessWidener	v1	different_namespace
 accessible	class	newa/NewClass
 extendable	class	newx/NewClass
 accessible	method	newa/NewClass	otherMethod	()I
 mutable	field	newg/NewClass	otherField	I
-add-interface	newx/NewClass	newz/Interface

@@ -1,0 +1,25 @@
+accessWidener	v2	somenamespace
+
+# Transitive wideners
+transitive-accessible	class	transitive/AccessibleClass
+transitive-extendable	class	transitive/ExtendableClass
+transitive-accessible	class	transitive/AccessibleExtendableClass
+transitive-extendable	class	transitive/AccessibleExtendableClass
+transitive-accessible	method	transitive/AccessibleClass	method	()V
+transitive-extendable	method	transitive/ExtendableClass	method	()V
+transitive-accessible	method	transitive/AccessibleExtendableClass	method	()V
+transitive-extendable	method	transitive/AccessibleExtendableClass	method	()V
+transitive-mutable	    field	transitive/AccessibleClass	finalField	I
+transitive-accessible	field	transitive/AccessibleClass	field	I
+
+# The same wideners, non-transitive (and different package)
+accessible	class	local/AccessibleClass
+extendable	class	local/ExtendableClass
+accessible	class	local/AccessibleExtendableClass
+extendable	class	local/AccessibleExtendableClass
+accessible	method	local/AccessibleClass	method	()V
+extendable	method	local/ExtendableClass	method	()V
+accessible	method	local/AccessibleExtendableClass	method	()V
+extendable	method	local/AccessibleExtendableClass	method	()V
+mutable	    field	local/AccessibleClass	finalField	I
+accessible	field	local/AccessibleClass	field	I

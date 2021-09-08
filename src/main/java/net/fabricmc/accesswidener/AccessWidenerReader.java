@@ -33,6 +33,8 @@ public final class AccessWidenerReader {
 	private static final Pattern V1_DELIMITER = Pattern.compile("\\s+");
 	// Only spaces or tabs
 	private static final Pattern V2_DELIMITER = Pattern.compile("[ \\t]+");
+	// Prefix used on access types to denote the entry should be inherited by mods depending on this mod
+	private static final String TRANSITIVE_PREFIX = "transitive-";
 
 	// Access widener format versions
 	private static final int V1 = 1;
@@ -106,27 +108,19 @@ public final class AccessWidenerReader {
 			// Note that this trims trailing spaces. See the docs of split for details.
 			List<String> tokens = Arrays.asList(delimiter.split(line));
 
-			boolean global = false;
+			String accessType = tokens.get(0);
+
+			boolean transitive = false;
 
 			if (version >= V2) {
-				// Global access widener flag
-				if (!tokens.isEmpty() && tokens.get(0).equals("global")) {
-					tokens = tokens.subList(1, tokens.size());
-					global = true;
-				}
-
-				// Interface injection
-				if (!tokens.isEmpty() && tokens.get(0).equals("add-interface")) {
-					handleInterfaceInjection(tokens, global);
-					continue;
+				// transitive access widener flag
+				if (accessType.startsWith(TRANSITIVE_PREFIX)) {
+					accessType = accessType.substring(TRANSITIVE_PREFIX.length());
+					transitive = true;
 				}
 			}
 
-			if (tokens.isEmpty()) {
-				throw error("Expected <accessible|extendable|mutable>");
-			}
-
-			AccessType access = readAccessType(tokens.get(0));
+			AccessType access = readAccessType(accessType);
 
 			if (tokens.size() < 2) {
 				throw error("Expected <class|field|method> following " + tokens.get(0));
@@ -134,13 +128,13 @@ public final class AccessWidenerReader {
 
 			switch (tokens.get(1)) {
 			case "class":
-				handleClassAccessor(line, tokens, global, access);
+				handleClassAccessor(line, tokens, transitive, access);
 				break;
 			case "field":
-				handleFieldAccessor(line, tokens, global, access);
+				handleFieldAccessor(line, tokens, transitive, access);
 				break;
 			case "method":
-				handleMethodAccessor(line, tokens, global, access);
+				handleMethodAccessor(line, tokens, transitive, access);
 				break;
 			default:
 				throw error("Unsupported type: '" + tokens.get(1) + "'");
@@ -148,7 +142,7 @@ public final class AccessWidenerReader {
 		}
 	}
 
-	private void handleClassAccessor(String line, List<String> tokens, boolean global, AccessType access) {
+	private void handleClassAccessor(String line, List<String> tokens, boolean transitive, AccessType access) {
 		if (tokens.size() != 3) {
 			throw error("Expected (<access> class <className>) got (%s)", line);
 		}
@@ -157,13 +151,13 @@ public final class AccessWidenerReader {
 		validateClassName(name);
 
 		try {
-			visitor.visitClass(name, access, global);
+			visitor.visitClass(name, access, transitive);
 		} catch (Exception e) {
 			throw error(e.toString());
 		}
 	}
 
-	private void handleFieldAccessor(String line, List<String> tokens, boolean global, AccessType access) {
+	private void handleFieldAccessor(String line, List<String> tokens, boolean transitive, AccessType access) {
 		if (tokens.size() != 5) {
 			throw error("Expected (<access> field <className> <fieldName> <fieldDesc>) got (%s)", line);
 		}
@@ -175,13 +169,13 @@ public final class AccessWidenerReader {
 		validateClassName(owner);
 
 		try {
-			visitor.visitField(owner, fieldName, descriptor, access, global);
+			visitor.visitField(owner, fieldName, descriptor, access, transitive);
 		} catch (Exception e) {
 			throw error(e.toString());
 		}
 	}
 
-	private void handleMethodAccessor(String line, List<String> tokens, boolean global, AccessType access) {
+	private void handleMethodAccessor(String line, List<String> tokens, boolean transitive, AccessType access) {
 		if (tokens.size() != 5) {
 			throw error("Expected (<access> method <className> <methodName> <methodDesc>) got (%s)", line);
 		}
@@ -193,32 +187,10 @@ public final class AccessWidenerReader {
 		validateClassName(owner);
 
 		try {
-			visitor.visitMethod(owner, methodName, descriptor, access, global);
+			visitor.visitMethod(owner, methodName, descriptor, access, transitive);
 		} catch (Exception e) {
 			throw error(e.toString());
 		}
-	}
-
-	private void handleInterfaceInjection(List<String> tokens, boolean global) {
-		if (tokens.size() < 2) {
-			throw error("Expected class name following add-interface keyword");
-		}
-
-		String className = tokens.get(1);
-		validateClassName(className);
-
-		if (tokens.size() < 3) {
-			throw error("Expected interface name following class-name");
-		}
-
-		String interfaceName = tokens.get(2);
-		validateClassName(interfaceName);
-
-		if (tokens.size() > 3) {
-			throw error("Expected no extra text following interface-name");
-		}
-
-		visitor.visitAddInterface(className, interfaceName, global);
 	}
 
 	private String handleComment(int version, String line) {
@@ -308,9 +280,9 @@ public final class AccessWidenerReader {
 		 *
 		 * @param name   the name of the class
 		 * @param access the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#EXTENDABLE})
-		 * @param global whether this widener should be applied across mod boundaries
+		 * @param transitive whether this widener should be applied across mod boundaries
 		 */
-		default void visitClass(String name, AccessType access, boolean global) {
+		default void visitClass(String name, AccessType access, boolean transitive) {
 		}
 
 		/**
@@ -320,9 +292,9 @@ public final class AccessWidenerReader {
 		 * @param name       the name of the method
 		 * @param descriptor the method descriptor
 		 * @param access     the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#EXTENDABLE})
-		 * @param global     whether this widener should be applied across mod boundaries
+		 * @param transitive     whether this widener should be applied across mod boundaries
 		 */
-		default void visitMethod(String owner, String name, String descriptor, AccessType access, boolean global) {
+		default void visitMethod(String owner, String name, String descriptor, AccessType access, boolean transitive) {
 		}
 
 		/**
@@ -332,19 +304,9 @@ public final class AccessWidenerReader {
 		 * @param name       the name of the field
 		 * @param descriptor the type of the field as a type descriptor
 		 * @param access     the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#MUTABLE})
-		 * @param global     whether this widener should be applied across mod boundaries
+		 * @param transitive     whether this widener should be applied across mod boundaries
 		 */
-		default void visitField(String owner, String name, String descriptor, AccessType access, boolean global) {
-		}
-
-		/**
-		 * Visits an injected interface.
-		 *
-		 * @param name   the name of the class to add an interface to
-		 * @param iface  the name of the interface to add
-		 * @param global whether this widener should be applied across mod boundaries
-		 */
-		default void visitAddInterface(String name, String iface, boolean global) {
+		default void visitField(String owner, String name, String descriptor, AccessType access, boolean transitive) {
 		}
 	}
 }

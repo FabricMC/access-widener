@@ -17,40 +17,38 @@
 package net.fabricmc.accesswidener;
 
 /**
- * Forwards visitor events to multiple other visitors.
+ * Decorates a visitor to only receive elements that are marked as transitive.
  */
-public class ForwardingVisitor implements AccessWidenerReader.Visitor {
-	private final AccessWidenerReader.Visitor[] visitors;
+public final class TransitiveOnlyFilter implements AccessWidenerReader.Visitor {
+	private final AccessWidenerReader.Visitor delegate;
 
-	public ForwardingVisitor(AccessWidenerReader.Visitor... visitors) {
-		this.visitors = visitors.clone();
+	public TransitiveOnlyFilter(AccessWidenerReader.Visitor delegate) {
+		this.delegate = delegate;
 	}
 
 	@Override
 	public void visitHeader(String namespace) {
-		for (AccessWidenerReader.Visitor visitor : visitors) {
-			visitor.visitHeader(namespace);
-		}
+		delegate.visitHeader(namespace);
 	}
 
 	@Override
 	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
-		for (AccessWidenerReader.Visitor visitor : visitors) {
-			visitor.visitClass(name, access, transitive);
+		if (transitive) {
+			delegate.visitClass(name, access, transitive);
 		}
 	}
 
 	@Override
 	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
-		for (AccessWidenerReader.Visitor visitor : visitors) {
-			visitor.visitMethod(owner, name, descriptor, access, transitive);
+		if (transitive) {
+			delegate.visitMethod(owner, name, descriptor, access, transitive);
 		}
 	}
 
 	@Override
 	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
-		for (AccessWidenerReader.Visitor visitor : visitors) {
-			visitor.visitField(owner, name, descriptor, access, transitive);
+		if (transitive) {
+			delegate.visitField(owner, name, descriptor, access, transitive);
 		}
 	}
 }

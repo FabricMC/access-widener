@@ -25,7 +25,6 @@ public final class AccessWidenerWriter implements AccessWidenerReader.Visitor {
 	private final List<ClassAccessor> classAccessors = new ArrayList<>();
 	private final List<MethodAccessor> methodAccessors = new ArrayList<>();
 	private final List<FieldAccessor> fieldAccessors = new ArrayList<>();
-	private final List<AddedInterface> addedInterfaces = new ArrayList<>();
 
 	@Override
 	public void visitHeader(String namespace) {
@@ -38,23 +37,18 @@ public final class AccessWidenerWriter implements AccessWidenerReader.Visitor {
 	}
 
 	@Override
-	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean global) {
-		classAccessors.add(new ClassAccessor(name, access, global));
+	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
+		classAccessors.add(new ClassAccessor(name, access, transitive));
 	}
 
 	@Override
-	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean global) {
-		methodAccessors.add(new MethodAccessor(owner, name, descriptor, access, global));
+	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+		methodAccessors.add(new MethodAccessor(owner, name, descriptor, access, transitive));
 	}
 
 	@Override
-	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean global) {
-		fieldAccessors.add(new FieldAccessor(owner, name, descriptor, access, global));
-	}
-
-	@Override
-	public void visitAddInterface(String name, String iface, boolean global) {
-		addedInterfaces.add(new AddedInterface(name, iface, global));
+	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+		fieldAccessors.add(new FieldAccessor(owner, name, descriptor, access, transitive));
 	}
 
 	public byte[] write() {
@@ -83,10 +77,6 @@ public final class AccessWidenerWriter implements AccessWidenerReader.Visitor {
 			fieldAccessor.write(builder, version);
 		}
 
-		for (AddedInterface addedInterface : addedInterfaces) {
-			addedInterface.write(builder, version);
-		}
-
 		return builder.toString();
 	}
 
@@ -94,13 +84,11 @@ public final class AccessWidenerWriter implements AccessWidenerReader.Visitor {
 	 * Checks which version has to be used based on the features that were used.
 	 */
 	private int determineVersion() {
-		boolean hasGlobal = classAccessors.stream().anyMatch(c -> c.global)
-				|| methodAccessors.stream().anyMatch(m -> m.global)
-				|| fieldAccessors.stream().anyMatch(f -> f.global)
-				|| addedInterfaces.stream().anyMatch(i -> i.global);
-		boolean hasAddedInterfaces = !addedInterfaces.isEmpty();
+		boolean hasTransitive = classAccessors.stream().anyMatch(c -> c.transitive)
+				|| methodAccessors.stream().anyMatch(m -> m.transitive)
+				|| fieldAccessors.stream().anyMatch(f -> f.transitive);
 
-		if (hasGlobal || hasAddedInterfaces) {
+		if (hasTransitive) {
 			return 2;
 		} else {
 			return 1;
@@ -110,17 +98,17 @@ public final class AccessWidenerWriter implements AccessWidenerReader.Visitor {
 	private static class ClassAccessor {
 		final String name;
 		final AccessWidenerReader.AccessType access;
-		final boolean global;
+		final boolean transitive;
 
-		ClassAccessor(String name, AccessWidenerReader.AccessType access, boolean global) {
+		ClassAccessor(String name, AccessWidenerReader.AccessType access, boolean transitive) {
 			this.name = name;
 			this.access = access;
-			this.global = global;
+			this.transitive = transitive;
 		}
 
 		void write(StringBuilder builder, int version) {
-			if (version >= 2 && global) {
-				builder.append("global\t");
+			if (version >= 2 && transitive) {
+				builder.append("transitive-");
 			}
 
 			builder.append(access).append("\tclass\t").append(name).append('\n');
@@ -132,19 +120,19 @@ public final class AccessWidenerWriter implements AccessWidenerReader.Visitor {
 		final String name;
 		final String descriptor;
 		final AccessWidenerReader.AccessType access;
-		final boolean global;
+		final boolean transitive;
 
-		MethodAccessor(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean global) {
+		MethodAccessor(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
 			this.owner = owner;
 			this.name = name;
 			this.descriptor = descriptor;
 			this.access = access;
-			this.global = global;
+			this.transitive = transitive;
 		}
 
 		void write(StringBuilder builder, int version) {
-			if (version >= 2 && global) {
-				builder.append("global\t");
+			if (version >= 2 && transitive) {
+				builder.append("transitive-");
 			}
 
 			builder.append(access).append("\tmethod\t").append(owner).append('\t').append(name)
@@ -157,43 +145,23 @@ public final class AccessWidenerWriter implements AccessWidenerReader.Visitor {
 		final String name;
 		final String descriptor;
 		final AccessWidenerReader.AccessType access;
-		final boolean global;
+		final boolean transitive;
 
-		FieldAccessor(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean global) {
+		FieldAccessor(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
 			this.owner = owner;
 			this.name = name;
 			this.descriptor = descriptor;
 			this.access = access;
-			this.global = global;
+			this.transitive = transitive;
 		}
 
 		void write(StringBuilder builder, int version) {
-			if (version >= 2 && global) {
-				builder.append("global\t");
+			if (version >= 2 && transitive) {
+				builder.append("transitive-");
 			}
 
 			builder.append(access).append("\tfield\t").append(owner).append('\t').append(name)
 					.append('\t').append(descriptor).append('\n');
-		}
-	}
-
-	private static class AddedInterface {
-		final String name;
-		final String iface;
-		final boolean global;
-
-		AddedInterface(String name, String iface, boolean global) {
-			this.name = name;
-			this.iface = iface;
-			this.global = global;
-		}
-
-		void write(StringBuilder builder, int version) {
-			if (version >= 2 && global) {
-				builder.append("global\t");
-			}
-
-			builder.append("add-interface\t").append(name).append('\t').append(iface).append('\n');
 		}
 	}
 }

@@ -16,8 +16,6 @@
 
 package net.fabricmc.accesswidener;
 
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -32,7 +30,6 @@ public final class AccessWidener implements AccessWidenerReader.Visitor {
 	final Map<String, Access> classAccess = new HashMap<>();
 	final Map<EntryTriple, Access> methodAccess = new HashMap<>();
 	final Map<EntryTriple, Access> fieldAccess = new HashMap<>();
-	final Map<String, Set<String>> addedInterfaces = new HashMap<>();
 	// Contains the class-names that are affected by loaded wideners.
 	// Names are period-separated binary names (i.e. a.b.C).
 	final Set<String> classes = new LinkedHashSet<>();
@@ -47,28 +44,21 @@ public final class AccessWidener implements AccessWidenerReader.Visitor {
 	}
 
 	@Override
-	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean global) {
+	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
 		classAccess.put(name, applyAccess(access, classAccess.getOrDefault(name, ClassAccess.DEFAULT), null));
 		addTargets(name);
 	}
 
 	@Override
-	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean global) {
+	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
 		addOrMerge(methodAccess, new EntryTriple(owner, name, descriptor), access, MethodAccess.DEFAULT);
 		addTargets(owner);
 	}
 
 	@Override
-	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean global) {
+	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
 		addOrMerge(fieldAccess, new EntryTriple(owner, name, descriptor), access, FieldAccess.DEFAULT);
 		addTargets(owner);
-	}
-
-	@Override
-	public void visitAddInterface(String name, String iface, boolean global) {
-		// NOTE: use linked hash set to preserve order since it sometimes does matter for interfaces
-		addedInterfaces.computeIfAbsent(name, s -> new LinkedHashSet<>()).add(iface);
-		addTargets(name);
 	}
 
 	private void addTargets(String clazz) {
@@ -117,10 +107,6 @@ public final class AccessWidener implements AccessWidenerReader.Visitor {
 
 	Access getClassAccess(String className) {
 		return classAccess.getOrDefault(className, ClassAccess.DEFAULT);
-	}
-
-	Collection<String> getAddedInterfaces(String className) {
-		return addedInterfaces.getOrDefault(className, Collections.emptySet());
 	}
 
 	Access getFieldAccess(EntryTriple entryTriple) {

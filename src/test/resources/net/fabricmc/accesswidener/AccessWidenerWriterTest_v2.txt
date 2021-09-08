@@ -3,14 +3,12 @@ accessible	class	pkg/AccessibleClass
 extendable	class	pkg/ExtendableClass
 accessible	class	pkg/AccessibleExtendableClass
 extendable	class	pkg/AccessibleExtendableClass
-global	accessible	class	pkg/GlobalAccessibleClass
+transitive-accessible	class	pkg/TransitiveAccessibleClass
 accessible	method	pkg/AccessibleClass	method	()V
 extendable	method	pkg/ExtendableClass	method	()V
 accessible	method	pkg/AccessibleExtendableClass	method	()V
 extendable	method	pkg/AccessibleExtendableClass	method	()V
-global	accessible	method	pkg/GlobalAccessibleClass	method	()V
+transitive-accessible	method	pkg/TransitiveAccessibleClass	method	()V
 accessible	field	pkg/AccessibleClass	field	I
 mutable	field	pkg/AccessibleClass	finalField	I
-global	accessible	field	pkg/GlobalAccessibleClass	field	I
-add-interface	pkg/IfaceClass	Interface
-global	add-interface	pkg/GlobalIfaceClass	Interface
+transitive-accessible	field	pkg/TransitiveAccessibleClass	field	I

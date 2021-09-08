@@ -93,11 +93,9 @@ class AccessWidenerWriterTest {
 		visitor.visitField("pkg/AccessibleClass", "finalField", "I", AccessWidenerReader.AccessType.MUTABLE, false);
 
 		if (includeV2Content) {
-			visitor.visitClass("pkg/GlobalAccessibleClass", AccessWidenerReader.AccessType.ACCESSIBLE, true);
-			visitor.visitMethod("pkg/GlobalAccessibleClass", "method", "()V", AccessWidenerReader.AccessType.ACCESSIBLE, true);
-			visitor.visitField("pkg/GlobalAccessibleClass", "field", "I", AccessWidenerReader.AccessType.ACCESSIBLE, true);
-			visitor.visitAddInterface("pkg/IfaceClass", "Interface", false);
-			visitor.visitAddInterface("pkg/GlobalIfaceClass", "Interface", true);
+			visitor.visitClass("pkg/TransitiveAccessibleClass", AccessWidenerReader.AccessType.ACCESSIBLE, true);
+			visitor.visitMethod("pkg/TransitiveAccessibleClass", "method", "()V", AccessWidenerReader.AccessType.ACCESSIBLE, true);
+			visitor.visitField("pkg/TransitiveAccessibleClass", "field", "I", AccessWidenerReader.AccessType.ACCESSIBLE, true);
 		}
 	}
 }

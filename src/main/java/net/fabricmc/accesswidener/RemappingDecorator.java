@@ -87,16 +87,6 @@ public final class RemappingDecorator implements AccessWidenerReader.Visitor {
 		delegate.visitField(owner, name, descriptor, access, global);
 	}
 
-	@Override
-	public void visitAddInterface(String name, String iface, boolean global) {
-		if (remapper != null) {
-			name = remapper.map(name);
-			iface = remapper.map(iface);
-		}
-
-		delegate.visitAddInterface(name, iface, global);
-	}
-
 	@FunctionalInterface
 	public interface Provider {
 		Remapper getRemapper(String from, String to);

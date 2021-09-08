@@ -18,7 +18,6 @@ package net.fabricmc.accesswidener;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
@@ -36,7 +35,6 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
-import test.InterfaceClass;
 import test.PrivateInnerClass;
 
 class AccessWidenerVisitorTest {
@@ -188,22 +186,6 @@ class AccessWidenerVisitorTest {
 			// this signifies that the INVOKESPECIAL instruction got rewritten to INVOKEVIRTUAL and the
 			// method of the same name in the subclass was invoked.
 			assertThat(result).isEqualTo(456);
-		}
-	}
-
-	@Nested
-	class AddInterfaces {
-		@Test
-		void testAddInterfaceWithMissingMethod() throws Exception {
-			widener.visitAddInterface("test/InterfaceClass", "test/InterfaceClass$X", false);
-			Class<?> testClass = applyTransformer("test.InterfaceClass");
-			assertThat(testClass.getInterfaces())
-					.contains(InterfaceClass.X.class);
-
-			// This is getting wild...
-			Object obj = testClass.getDeclaredConstructor().newInstance();
-			assertThat(obj).isInstanceOf(InterfaceClass.X.class);
-			assertThrows(AbstractMethodError.class, ((InterfaceClass.X) obj)::someMethod);
 		}
 	}
 

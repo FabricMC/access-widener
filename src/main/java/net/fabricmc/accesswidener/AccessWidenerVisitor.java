@@ -16,11 +16,6 @@
 
 package net.fabricmc.accesswidener;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.Set;
-
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -44,16 +39,6 @@ public final class AccessWidenerVisitor extends ClassVisitor {
 	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
 		className = name;
 		classAccess = access;
-
-		// Add interfaces to the class (but don't add duplicates)
-		Collection<String> additionalIfaces = accessWidener.getAddedInterfaces(name);
-
-		if (!additionalIfaces.isEmpty()) {
-			Set<String> modifiedInterfaces = new LinkedHashSet<>(interfaces.length + additionalIfaces.size());
-			Collections.addAll(modifiedInterfaces, interfaces);
-			modifiedInterfaces.addAll(additionalIfaces);
-			interfaces = modifiedInterfaces.toArray(new String[0]);
-		}
 
 		super.visit(
 				version,

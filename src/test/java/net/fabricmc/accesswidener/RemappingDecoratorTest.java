@@ -77,7 +77,6 @@ class RemappingDecoratorTest {
 		visitor.visitClass("x/Class", AccessWidenerReader.AccessType.EXTENDABLE, false);
 		visitor.visitMethod("a/Class", "someMethod", "()I", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 		visitor.visitField("g/Class", "someField", "I", AccessWidenerReader.AccessType.MUTABLE, false);
-		visitor.visitAddInterface("x/Class", "z/Interface", false);
 	}
 
 	private String readReferenceContent(String name) throws IOException, URISyntaxException {

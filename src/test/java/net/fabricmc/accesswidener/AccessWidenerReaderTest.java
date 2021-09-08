@@ -32,12 +32,9 @@ import java.util.Collections;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 public class AccessWidenerReaderTest {
 	AccessWidener visitor = new AccessWidener();
@@ -407,32 +404,30 @@ public class AccessWidenerReaderTest {
 
 	@Nested
 	class StrictModeParsing {
-		@BeforeEach
-		void setupReader() {
-			reader.setStrictMode(true);
-		}
-
-		@ParameterizedTest
-		@CsvSource({
-				"accessible class some.Class",
-				"accessible method some.Class method ()V",
-				"accessible field some.Class field I",
-				"add-interface some.Class some/Interface",
-		})
-		void throwsOnMalformedClassName(String line) {
+		@Test
+		void testClassName() {
 			reader.setStrictMode(true);
 			assertFormatError(
 					"Class-names must be specified as a/b/C, not a.b.C, but found: some.Class",
-					() -> parseLines(line)
+					() -> parseLines("accessible class some.Class")
 			);
 		}
 
 		@Test
-		void throwsOnMalformedInterfaceName() {
+		void testClassNameInMethodWidener() {
 			reader.setStrictMode(true);
 			assertFormatError(
-					"Class-names must be specified as a/b/C, not a.b.C, but found: some.Interface",
-					() -> parseLines("add-interface some/Class some.Interface")
+					"Class-names must be specified as a/b/C, not a.b.C, but found: some.Class",
+					() -> parseLines("accessible method some.Class method ()V")
+			);
+		}
+
+		@Test
+		void testClassNameInFieldWidener() {
+			reader.setStrictMode(true);
+			assertFormatError(
+					"Class-names must be specified as a/b/C, not a.b.C, but found: some.Class",
+					() -> parseLines("accessible field some.Class field I")
 			);
 		}
 	}
@@ -443,61 +438,27 @@ public class AccessWidenerReaderTest {
 	@Nested
 	class V2Parsing {
 		@Test
-		void throwsOnMissingKeywordsAfterGlobal() {
-			assertFormatError(
-					"Expected <accessible|extendable|mutable>",
-					() -> parseLines("global ")
-			);
-		}
-
-		@Test
-		void globalKeywordIsIgnoredWhenNoFilterIsSet() throws Exception {
-			String testInput = readTestInput("AccessWidenerReaderTest_global.txt");
+		void transitiveKeywordIsIgnoredWhenNoFilterIsSet() throws Exception {
+			String testInput = readTestInput("AccessWidenerReaderTest_transitive.txt");
 			parse(testInput);
 
 			assertWidenerContains("local");
-			assertWidenerContains("global");
+			assertWidenerContains("transitive");
 			assertThat(visitor.classAccess).hasSize(6);
 			assertThat(visitor.methodAccess).hasSize(6);
 			assertThat(visitor.fieldAccess).hasSize(4);
-			assertThat(visitor.addedInterfaces).hasSize(2);
 		}
 
 		@Test
-		void nonGlobalEntriesAreIgnoredWhenGlobalFilterIsSet() throws Exception {
-			String testInput = readTestInput("AccessWidenerReaderTest_global.txt");
-			reader = new AccessWidenerReader(new GlobalOnlyDecorator(visitor));
+		void nonTransitiveEntriesAreIgnoredByNonTransitiveFilter() throws Exception {
+			String testInput = readTestInput("AccessWidenerReaderTest_transitive.txt");
+			reader = new AccessWidenerReader(new TransitiveOnlyFilter(visitor));
 			parse(testInput);
 
-			assertWidenerContains("global");
+			assertWidenerContains("transitive");
 			assertThat(visitor.classAccess).hasSize(3);
 			assertThat(visitor.methodAccess).hasSize(3);
 			assertThat(visitor.fieldAccess).hasSize(2);
-			assertThat(visitor.addedInterfaces).hasSize(1);
-		}
-
-		@Test
-		void throwsOnAddInterfaceMissingClassName() {
-			assertFormatError(
-					"Expected class name following add-interface keyword",
-					() -> parseLines("add-interface")
-			);
-		}
-
-		@Test
-		void throwsOnAddInterfaceMissingInterfaceName() {
-			assertFormatError(
-					"Expected interface name following class-name",
-					() -> parseLines("add-interface some/Class")
-			);
-		}
-
-		@Test
-		void throwsOnAddInterfaceTrailingText() {
-			assertFormatError(
-					"Expected no extra text following interface-name",
-					() -> parseLines("add-interface some/Class some/Interface extra")
-			);
 		}
 
 		private void assertWidenerContains(String prefix) {
@@ -514,9 +475,6 @@ public class AccessWidenerReaderTest {
 			assertThat(visitor.fieldAccess).contains(
 					entry(new EntryTriple(prefix + "/AccessibleClass", "finalField", "I"), AccessWidener.FieldAccess.MUTABLE),
 					entry(new EntryTriple(prefix + "/AccessibleClass", "field", "I"), AccessWidener.FieldAccess.ACCESSIBLE)
-			);
-			assertThat(visitor.addedInterfaces).contains(
-					entry(prefix + "/Class", Collections.singleton("my/Interface"))
 			);
 		}
 	}
