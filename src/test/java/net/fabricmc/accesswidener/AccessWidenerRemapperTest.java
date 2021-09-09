@@ -16,7 +16,9 @@
 
 package net.fabricmc.accesswidener;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -50,6 +52,23 @@ class AccessWidenerRemapperTest {
 	Remapper getRemapper(String from, String to) {
 		assertEquals("original_namespace", from);
 		return remapper;
+	}
+
+	@Test
+	void testRemappingWithUnexpectedNamespace() {
+		IllegalArgumentException e = assertThrows(
+				IllegalArgumentException.class,
+				() -> new AccessWidenerRemapper(new AccessWidenerWriter(), remapper, "expected_namespace", "target")
+						.visitHeader("unexpected_namespace")
+		);
+		assertThat(e).hasMessageContaining("Cannot remap access widener from namespace 'unexpected_namespace'");
+	}
+
+	@Test
+	void testRemappingUsingShortcutConstructor() throws Exception {
+		AccessWidenerWriter writer = new AccessWidenerWriter();
+		accept(new AccessWidenerRemapper(writer, remapper, "original_namespace", "different_namespace"));
+		assertEquals(readReferenceContent("Remapped.txt"), writer.writeString());
 	}
 
 	@Test

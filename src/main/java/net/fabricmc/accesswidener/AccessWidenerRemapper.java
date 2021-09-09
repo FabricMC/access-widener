@@ -31,9 +31,34 @@ public final class AccessWidenerRemapper implements AccessWidenerVisitor {
 
 	/**
 	 * @param delegate        The visitor to forward the remapped information to.
+	 * @param remapper        Will be used to remap names found in the access widener.
+	 * @param sourceNamespace The expected namespace of the access widener being remapped. Remapping fails if the
+	 *                        actual namespace is different.
+	 * @param targetNamespace The namespace that the access widener will be remapped to.
+	 */
+	public AccessWidenerRemapper(
+			AccessWidenerVisitor delegate,
+			Remapper remapper,
+			String sourceNamespace,
+			String targetNamespace
+	) {
+		this.delegate = delegate;
+		this.targetNamespace = targetNamespace;
+		this.remapperProvider = (from, to) -> {
+			if (!sourceNamespace.equals(from)) {
+				throw new IllegalArgumentException("Cannot remap access widener from namespace '" + from + "'."
+						+ " Expected " + sourceNamespace);
+			}
+
+			return remapper;
+		};
+	}
+
+	/**
+	 * @param delegate         The visitor to forward the remapped information to.
 	 * @param remapperProvider Will be used to acquire a remapper based on the namespace found in the access widener.
 	 *                         Can return null to indicate no remapping should occur for this namespace.
-	 * @param targetNamespace The namespace that the access widener will be remapped to.
+	 * @param targetNamespace  The namespace that the access widener will be remapped to.
 	 */
 	public AccessWidenerRemapper(
 			AccessWidenerVisitor delegate,
