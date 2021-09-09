@@ -22,16 +22,20 @@ import java.util.List;
 public final class AccessWidenerWriter implements AccessWidenerVisitor {
 	private String namespace;
 
+	private int version;
+
 	private final List<Rule> rules = new ArrayList<>();
 
 	@Override
-	public void visitHeader(String namespace) {
+	public void visitHeader(int version, String namespace) {
 		if (this.namespace != null && !this.namespace.equals(namespace)) {
 			throw new IllegalArgumentException("Cannot write different namespaces to the same file ("
 					+ this.namespace + " != " + namespace + ")");
 		}
 
 		this.namespace = namespace;
+		// Supports merging different AWs by using the highest version
+		this.version = Math.max(this.version, version);
 	}
 
 	@Override
@@ -58,9 +62,6 @@ public final class AccessWidenerWriter implements AccessWidenerVisitor {
 			throw new IllegalStateException("No namespace set. visitHeader wasn't called.");
 		}
 
-		// Determine the minimum version needed to write the rules
-		int version = rules.stream().mapToInt(Rule::getMinimumVersion).max().orElse(1);
-
 		StringBuilder builder = new StringBuilder();
 		builder.append("accessWidener\tv")
 				.append(version)
@@ -82,10 +83,6 @@ public final class AccessWidenerWriter implements AccessWidenerVisitor {
 		Rule(boolean transitive, AccessWidenerReader.AccessType access) {
 			this.transitive = transitive;
 			this.access = access;
-		}
-
-		int getMinimumVersion() {
-			return transitive ? 2 : 1;
 		}
 
 		void write(StringBuilder builder, int version) {

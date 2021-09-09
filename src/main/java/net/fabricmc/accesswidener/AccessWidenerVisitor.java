@@ -23,9 +23,10 @@ public interface AccessWidenerVisitor {
 	/**
 	 * Visits the header data.
 	 *
+	 * @param version
 	 * @param namespace the access widener's mapping namespace
 	 */
-	default void visitHeader(String namespace) {
+	default void visitHeader(int version, String namespace) {
 	}
 
 	/**

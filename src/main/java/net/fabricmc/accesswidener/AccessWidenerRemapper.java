@@ -71,14 +71,14 @@ public final class AccessWidenerRemapper implements AccessWidenerVisitor {
 	}
 
 	@Override
-	public void visitHeader(String namespace) {
+	public void visitHeader(int version, String namespace) {
 		if (!namespace.equals(targetNamespace)) {
 			remapper = remapperProvider.getRemapper(namespace, targetNamespace);
 		} else {
 			remapper = null;
 		}
 
-		delegate.visitHeader(targetNamespace);
+		delegate.visitHeader(version, targetNamespace);
 	}
 
 	@Override

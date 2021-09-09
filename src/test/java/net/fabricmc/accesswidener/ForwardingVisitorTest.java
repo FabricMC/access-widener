@@ -27,14 +27,14 @@ class ForwardingVisitorTest {
 
 	@Test
 	void visitHeader() {
-		visitor.visitHeader("special-namespace");
-		assertEquals("accessWidener\tv1\tspecial-namespace\n", writer1.writeString());
+		visitor.visitHeader(2, "special-namespace");
+		assertEquals("accessWidener\tv2\tspecial-namespace\n", writer1.writeString());
 		assertEquals(writer1.writeString(), writer2.writeString());
 	}
 
 	@Test
 	void visitClass() {
-		visitor.visitHeader("special-namespace");
+		visitor.visitHeader(2, "special-namespace");
 		visitor.visitClass("class-name", AccessWidenerReader.AccessType.ACCESSIBLE, true);
 		assertEquals("accessWidener\tv2\tspecial-namespace\n"
 				+ "transitive-accessible\tclass\tclass-name\n", writer1.writeString());
@@ -43,7 +43,7 @@ class ForwardingVisitorTest {
 
 	@Test
 	void visitMethod() {
-		visitor.visitHeader("special-namespace");
+		visitor.visitHeader(2, "special-namespace");
 		visitor.visitMethod("class-name", "method-name", "method-desc", AccessWidenerReader.AccessType.ACCESSIBLE, true);
 		assertEquals("accessWidener\tv2\tspecial-namespace\n"
 				+ "transitive-accessible\tmethod\tclass-name\tmethod-name\tmethod-desc\n", writer1.writeString());
@@ -52,7 +52,7 @@ class ForwardingVisitorTest {
 
 	@Test
 	void visitField() {
-		visitor.visitHeader("special-namespace");
+		visitor.visitHeader(2, "special-namespace");
 		visitor.visitField("field-name", "field-name", "field-desc", AccessWidenerReader.AccessType.ACCESSIBLE, true);
 		assertEquals("accessWidener\tv2\tspecial-namespace\n"
 				+ "transitive-accessible\tfield\tfield-name\tfield-name\tfield-desc\n", writer1.writeString());

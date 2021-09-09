@@ -27,9 +27,9 @@ public class ForwardingVisitor implements AccessWidenerVisitor {
 	}
 
 	@Override
-	public void visitHeader(String namespace) {
+	public void visitHeader(int version, String namespace) {
 		for (AccessWidenerVisitor visitor : visitors) {
-			visitor.visitHeader(namespace);
+			visitor.visitHeader(version, namespace);
 		}
 	}
 

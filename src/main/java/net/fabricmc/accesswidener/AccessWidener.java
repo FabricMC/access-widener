@@ -35,7 +35,7 @@ public final class AccessWidener implements AccessWidenerVisitor {
 	final Set<String> classes = new LinkedHashSet<>();
 
 	@Override
-	public void visitHeader(String namespace) {
+	public void visitHeader(int version, String namespace) {
 		if (this.namespace != null && !this.namespace.equals(namespace)) {
 			throw new RuntimeException(String.format("Namespace mismatch, expected %s got %s", this.namespace, namespace));
 		}

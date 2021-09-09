@@ -59,7 +59,7 @@ class AccessWidenerRemapperTest {
 		IllegalArgumentException e = assertThrows(
 				IllegalArgumentException.class,
 				() -> new AccessWidenerRemapper(new AccessWidenerWriter(), remapper, "expected_namespace", "target")
-						.visitHeader("unexpected_namespace")
+						.visitHeader(1, "unexpected_namespace")
 		);
 		assertThat(e).hasMessageContaining("Cannot remap access widener from namespace 'unexpected_namespace'");
 	}
@@ -91,7 +91,7 @@ class AccessWidenerRemapperTest {
 	}
 
 	void accept(AccessWidenerVisitor visitor) {
-		visitor.visitHeader("original_namespace");
+		visitor.visitHeader(1, "original_namespace");
 		visitor.visitClass("a/Class", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 		visitor.visitClass("x/Class", AccessWidenerReader.AccessType.EXTENDABLE, false);
 		visitor.visitMethod("a/Class", "someMethod", "()I", AccessWidenerReader.AccessType.ACCESSIBLE, false);

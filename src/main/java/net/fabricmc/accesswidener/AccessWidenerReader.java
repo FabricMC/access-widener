@@ -80,7 +80,7 @@ public final class AccessWidenerReader {
 			throw error("Namespace (%s) does not match current runtime namespace (%s)", header[2], currentNamespace);
 		}
 
-		visitor.visitHeader(header[2]);
+		visitor.visitHeader(version, header[2]);
 
 		String line;
 

@@ -27,8 +27,8 @@ public final class TransitiveOnlyFilter implements AccessWidenerVisitor {
 	}
 
 	@Override
-	public void visitHeader(String namespace) {
-		delegate.visitHeader(namespace);
+	public void visitHeader(int version, String namespace) {
+		delegate.visitHeader(version, namespace);
 	}
 
 	@Override
