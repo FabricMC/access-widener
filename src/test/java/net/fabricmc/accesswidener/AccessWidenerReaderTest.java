@@ -394,19 +394,12 @@ public class AccessWidenerReaderTest {
 			parseLines("accessible \tclass\t\t SomeName");
 			assertThat(visitor.classes).containsOnly("SomeName");
 		}
-
-		@Test
-		void allowsMalformedClassNameInNonStrictMode() throws IOException {
-			parseLines("accessible class some.Class");
-			assertThat(visitor.classes).containsOnly("some.Class");
-		}
 	}
 
 	@Nested
-	class StrictModeParsing {
+	class ClassNameValidation {
 		@Test
 		void testClassName() {
-			reader.setStrictMode(true);
 			assertFormatError(
 					"Class-names must be specified as a/b/C, not a.b.C, but found: some.Class",
 					() -> parseLines("accessible class some.Class")
@@ -415,7 +408,6 @@ public class AccessWidenerReaderTest {
 
 		@Test
 		void testClassNameInMethodWidener() {
-			reader.setStrictMode(true);
 			assertFormatError(
 					"Class-names must be specified as a/b/C, not a.b.C, but found: some.Class",
 					() -> parseLines("accessible method some.Class method ()V")
@@ -424,7 +416,6 @@ public class AccessWidenerReaderTest {
 
 		@Test
 		void testClassNameInFieldWidener() {
-			reader.setStrictMode(true);
 			assertFormatError(
 					"Class-names must be specified as a/b/C, not a.b.C, but found: some.Class",
 					() -> parseLines("accessible field some.Class field I")

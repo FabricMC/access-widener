@@ -19,17 +19,15 @@ package net.fabricmc.accesswidener;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class AccessWidenerWriter implements AccessWidenerReader.Visitor {
+public final class AccessWidenerWriter implements AccessWidenerVisitor {
 	private String namespace;
 
-	private final List<ClassAccessor> classAccessors = new ArrayList<>();
-	private final List<MethodAccessor> methodAccessors = new ArrayList<>();
-	private final List<FieldAccessor> fieldAccessors = new ArrayList<>();
+	private final List<Rule> rules = new ArrayList<>();
 
 	@Override
 	public void visitHeader(String namespace) {
 		if (this.namespace != null && !this.namespace.equals(namespace)) {
-			throw new IllegalArgumentException("Cannot write two different namespaces to the same file ("
+			throw new IllegalArgumentException("Cannot write different namespaces to the same file ("
 					+ this.namespace + " != " + namespace + ")");
 		}
 
@@ -38,17 +36,17 @@ public final class AccessWidenerWriter implements AccessWidenerReader.Visitor {
 
 	@Override
 	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
-		classAccessors.add(new ClassAccessor(name, access, transitive));
+		rules.add(new ClassRule(name, access, transitive));
 	}
 
 	@Override
 	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
-		methodAccessors.add(new MethodAccessor(owner, name, descriptor, access, transitive));
+		rules.add(new MethodRule(owner, name, descriptor, access, transitive));
 	}
 
 	@Override
 	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
-		fieldAccessors.add(new FieldAccessor(owner, name, descriptor, access, transitive));
+		rules.add(new FieldRule(owner, name, descriptor, access, transitive));
 	}
 
 	public byte[] write() {
@@ -56,111 +54,104 @@ public final class AccessWidenerWriter implements AccessWidenerReader.Visitor {
 	}
 
 	public String writeString() {
-		int version = determineVersion();
+		if (namespace == null) {
+			throw new IllegalStateException("No namespace set. visitHeader wasn't called.");
+		}
+
+		// Determine the minimum version needed to write the rules
+		int version = rules.stream().mapToInt(Rule::getMinimumVersion).max().orElse(1);
 
 		StringBuilder builder = new StringBuilder();
 		builder.append("accessWidener\tv")
 				.append(version)
 				.append('\t')
-				.append(namespace != null ? namespace : "unknown")
-				.append("\n");
+				.append(namespace)
+				.append('\n');
 
-		for (ClassAccessor classAccessor : classAccessors) {
-			classAccessor.write(builder, version);
-		}
-
-		for (MethodAccessor methodAccessor : methodAccessors) {
-			methodAccessor.write(builder, version);
-		}
-
-		for (FieldAccessor fieldAccessor : fieldAccessors) {
-			fieldAccessor.write(builder, version);
+		for (Rule rule : rules) {
+			rule.write(builder, version);
 		}
 
 		return builder.toString();
 	}
 
-	/**
-	 * Checks which version has to be used based on the features that were used.
-	 */
-	private int determineVersion() {
-		boolean hasTransitive = classAccessors.stream().anyMatch(c -> c.transitive)
-				|| methodAccessors.stream().anyMatch(m -> m.transitive)
-				|| fieldAccessors.stream().anyMatch(f -> f.transitive);
-
-		if (hasTransitive) {
-			return 2;
-		} else {
-			return 1;
-		}
-	}
-
-	private static class ClassAccessor {
-		final String name;
-		final AccessWidenerReader.AccessType access;
+	private abstract static class Rule {
 		final boolean transitive;
+		final AccessWidenerReader.AccessType access;
 
-		ClassAccessor(String name, AccessWidenerReader.AccessType access, boolean transitive) {
-			this.name = name;
-			this.access = access;
+		Rule(boolean transitive, AccessWidenerReader.AccessType access) {
 			this.transitive = transitive;
+			this.access = access;
+		}
+
+		int getMinimumVersion() {
+			return transitive ? 2 : 1;
 		}
 
 		void write(StringBuilder builder, int version) {
-			if (version >= 2 && transitive) {
+			if (transitive) {
+				if (version < 2) {
+					throw new IllegalStateException("Cannot write transitive rule in version " + version);
+				}
+
 				builder.append("transitive-");
 			}
 
-			builder.append(access).append("\tclass\t").append(name).append('\n');
+			builder.append(access);
 		}
 	}
 
-	private static class MethodAccessor {
+	private static class ClassRule extends Rule {
+		final String name;
+
+		ClassRule(String name, AccessWidenerReader.AccessType access, boolean transitive) {
+			super(transitive, access);
+			this.name = name;
+		}
+
+		@Override
+		void write(StringBuilder builder, int version) {
+			super.write(builder, version);
+			builder.append("\tclass\t").append(name).append('\n');
+		}
+	}
+
+	private static class MethodRule extends Rule {
 		final String owner;
 		final String name;
 		final String descriptor;
-		final AccessWidenerReader.AccessType access;
-		final boolean transitive;
 
-		MethodAccessor(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+		MethodRule(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+			super(transitive, access);
 			this.owner = owner;
 			this.name = name;
 			this.descriptor = descriptor;
-			this.access = access;
-			this.transitive = transitive;
 		}
 
+		@Override
 		void write(StringBuilder builder, int version) {
-			if (version >= 2 && transitive) {
-				builder.append("transitive-");
-			}
-
-			builder.append(access).append("\tmethod\t").append(owner).append('\t').append(name)
+			super.write(builder, version);
+			builder.append("\tmethod\t").append(owner).append('\t').append(name)
 					.append('\t').append(descriptor).append('\n');
 		}
 	}
 
-	private static class FieldAccessor {
+	private static class FieldRule extends Rule {
 		final String owner;
 		final String name;
 		final String descriptor;
-		final AccessWidenerReader.AccessType access;
-		final boolean transitive;
 
-		FieldAccessor(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+		FieldRule(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+			super(transitive, access);
 			this.owner = owner;
 			this.name = name;
 			this.descriptor = descriptor;
-			this.access = access;
-			this.transitive = transitive;
 		}
 
+		@Override
 		void write(StringBuilder builder, int version) {
-			if (version >= 2 && transitive) {
-				builder.append("transitive-");
-			}
-
-			builder.append(access).append("\tfield\t").append(owner).append('\t').append(name)
+			super.write(builder, version);
+			builder.append("\tfield\t").append(owner).append('\t').append(name)
 					.append('\t').append(descriptor).append('\n');
 		}
 	}

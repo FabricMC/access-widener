@@ -3,12 +3,12 @@ accessible	class	pkg/AccessibleClass
 extendable	class	pkg/ExtendableClass
 accessible	class	pkg/AccessibleExtendableClass
 extendable	class	pkg/AccessibleExtendableClass
-transitive-accessible	class	pkg/TransitiveAccessibleClass
 accessible	method	pkg/AccessibleClass	method	()V
 extendable	method	pkg/ExtendableClass	method	()V
 accessible	method	pkg/AccessibleExtendableClass	method	()V
 extendable	method	pkg/AccessibleExtendableClass	method	()V
-transitive-accessible	method	pkg/TransitiveAccessibleClass	method	()V
 accessible	field	pkg/AccessibleClass	field	I
 mutable	field	pkg/AccessibleClass	finalField	I
+transitive-accessible	class	pkg/TransitiveAccessibleClass
+transitive-accessible	method	pkg/TransitiveAccessibleClass	method	()V
 transitive-accessible	field	pkg/TransitiveAccessibleClass	field	I

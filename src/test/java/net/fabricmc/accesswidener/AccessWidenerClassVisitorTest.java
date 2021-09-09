@@ -37,7 +37,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import test.PrivateInnerClass;
 
-class AccessWidenerVisitorTest {
+class AccessWidenerClassVisitorTest {
 	AccessWidener widener = new AccessWidener();
 
 	@Nested
@@ -246,7 +246,7 @@ class AccessWidenerVisitorTest {
 							ClassReader classReader = new ClassReader(classData);
 							ClassWriter classWriter = new ClassWriter(0);
 							ClassVisitor visitor = classWriter;
-							visitor = AccessWidenerVisitor.createClassVisitor(Opcodes.ASM9, visitor, widener);
+							visitor = AccessWidenerClassVisitor.createClassVisitor(Opcodes.ASM9, visitor, widener);
 							classReader.accept(visitor, 0);
 							byte[] bytes = classWriter.toByteArray();
 							return defineClass(name, bytes, 0, bytes.length);

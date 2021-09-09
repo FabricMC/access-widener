@@ -16,6 +16,7 @@
 
 package net.fabricmc.accesswidener;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -29,6 +30,12 @@ import java.util.Objects;
 import org.junit.jupiter.api.Test;
 
 class AccessWidenerWriterTest {
+	@Test
+	void testCantWriteWithoutNamespace() {
+		IllegalStateException e = assertThrows(IllegalStateException.class, new AccessWidenerWriter()::writeString);
+		assertThat(e).hasMessageContaining("No namespace set");
+	}
+
 	@Test
 	void testWriteWidenerV1() throws Exception {
 		String expectedContent = readReferenceContent("AccessWidenerWriterTest_v1.txt");
@@ -76,7 +83,7 @@ class AccessWidenerWriterTest {
 		return expectedContent.replace("\r\n", "\n"); // Normalize line endings
 	}
 
-	private void accept(AccessWidenerReader.Visitor visitor, boolean includeV2Content) {
+	private void accept(AccessWidenerVisitor visitor, boolean includeV2Content) {
 		visitor.visitHeader("somenamespace");
 
 		visitor.visitClass("pkg/AccessibleClass", AccessWidenerReader.AccessType.ACCESSIBLE, false);

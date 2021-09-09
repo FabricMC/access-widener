@@ -19,37 +19,37 @@ package net.fabricmc.accesswidener;
 /**
  * Forwards visitor events to multiple other visitors.
  */
-public class ForwardingVisitor implements AccessWidenerReader.Visitor {
-	private final AccessWidenerReader.Visitor[] visitors;
+public class ForwardingVisitor implements AccessWidenerVisitor {
+	private final AccessWidenerVisitor[] visitors;
 
-	public ForwardingVisitor(AccessWidenerReader.Visitor... visitors) {
+	public ForwardingVisitor(AccessWidenerVisitor... visitors) {
 		this.visitors = visitors.clone();
 	}
 
 	@Override
 	public void visitHeader(String namespace) {
-		for (AccessWidenerReader.Visitor visitor : visitors) {
+		for (AccessWidenerVisitor visitor : visitors) {
 			visitor.visitHeader(namespace);
 		}
 	}
 
 	@Override
 	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
-		for (AccessWidenerReader.Visitor visitor : visitors) {
+		for (AccessWidenerVisitor visitor : visitors) {
 			visitor.visitClass(name, access, transitive);
 		}
 	}
 
 	@Override
 	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
-		for (AccessWidenerReader.Visitor visitor : visitors) {
+		for (AccessWidenerVisitor visitor : visitors) {
 			visitor.visitMethod(owner, name, descriptor, access, transitive);
 		}
 	}
 
 	@Override
 	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
-		for (AccessWidenerReader.Visitor visitor : visitors) {
+		for (AccessWidenerVisitor visitor : visitors) {
 			visitor.visitField(owner, name, descriptor, access, transitive);
 		}
 	}

@@ -19,10 +19,10 @@ package net.fabricmc.accesswidener;
 /**
  * Decorates a visitor to only receive elements that are marked as transitive.
  */
-public final class TransitiveOnlyFilter implements AccessWidenerReader.Visitor {
-	private final AccessWidenerReader.Visitor delegate;
+public final class TransitiveOnlyFilter implements AccessWidenerVisitor {
+	private final AccessWidenerVisitor delegate;
 
-	public TransitiveOnlyFilter(AccessWidenerReader.Visitor delegate) {
+	public TransitiveOnlyFilter(AccessWidenerVisitor delegate) {
 		this.delegate = delegate;
 	}
 

@@ -40,18 +40,12 @@ public final class AccessWidenerReader {
 	private static final int V1 = 1;
 	private static final int V2 = 1;
 
-	private final Visitor visitor;
+	private final AccessWidenerVisitor visitor;
 
 	private int lineNumber;
 
-	private boolean strictMode;
-
-	public AccessWidenerReader(Visitor visitor) {
+	public AccessWidenerReader(AccessWidenerVisitor visitor) {
 		this.visitor = visitor;
-	}
-
-	public void setStrictMode(boolean strictMode) {
-		this.strictMode = strictMode;
 	}
 
 	public void read(byte[] content) {
@@ -128,13 +122,13 @@ public final class AccessWidenerReader {
 
 			switch (tokens.get(1)) {
 			case "class":
-				handleClassAccessor(line, tokens, transitive, access);
+				handleClass(line, tokens, transitive, access);
 				break;
 			case "field":
-				handleFieldAccessor(line, tokens, transitive, access);
+				handleField(line, tokens, transitive, access);
 				break;
 			case "method":
-				handleMethodAccessor(line, tokens, transitive, access);
+				handleMethod(line, tokens, transitive, access);
 				break;
 			default:
 				throw error("Unsupported type: '" + tokens.get(1) + "'");
@@ -142,7 +136,7 @@ public final class AccessWidenerReader {
 		}
 	}
 
-	private void handleClassAccessor(String line, List<String> tokens, boolean transitive, AccessType access) {
+	private void handleClass(String line, List<String> tokens, boolean transitive, AccessType access) {
 		if (tokens.size() != 3) {
 			throw error("Expected (<access> class <className>) got (%s)", line);
 		}
@@ -157,7 +151,7 @@ public final class AccessWidenerReader {
 		}
 	}
 
-	private void handleFieldAccessor(String line, List<String> tokens, boolean transitive, AccessType access) {
+	private void handleField(String line, List<String> tokens, boolean transitive, AccessType access) {
 		if (tokens.size() != 5) {
 			throw error("Expected (<access> field <className> <fieldName> <fieldDesc>) got (%s)", line);
 		}
@@ -175,7 +169,7 @@ public final class AccessWidenerReader {
 		}
 	}
 
-	private void handleMethodAccessor(String line, List<String> tokens, boolean transitive, AccessType access) {
+	private void handleMethod(String line, List<String> tokens, boolean transitive, AccessType access) {
 		if (tokens.size() != 5) {
 			throw error("Expected (<access> method <className> <methodName> <methodDesc>) got (%s)", line);
 		}
@@ -261,52 +255,8 @@ public final class AccessWidenerReader {
 
 	private void validateClassName(String className) {
 		// Common mistake is using periods to separate packages/class names
-		if (strictMode && className.contains(".")) {
+		if (className.contains(".")) {
 			throw error("Class-names must be specified as a/b/C, not a.b.C, but found: %s", className);
-		}
-	}
-
-	public interface Visitor {
-		/**
-		 * Visits the header data.
-		 *
-		 * @param namespace the access widener's mapping namespace
-		 */
-		default void visitHeader(String namespace) {
-		}
-
-		/**
-		 * Visits a widened class.
-		 *
-		 * @param name   the name of the class
-		 * @param access the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#EXTENDABLE})
-		 * @param transitive whether this widener should be applied across mod boundaries
-		 */
-		default void visitClass(String name, AccessType access, boolean transitive) {
-		}
-
-		/**
-		 * Visits a widened method.
-		 *
-		 * @param owner      the name of the containing class
-		 * @param name       the name of the method
-		 * @param descriptor the method descriptor
-		 * @param access     the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#EXTENDABLE})
-		 * @param transitive     whether this widener should be applied across mod boundaries
-		 */
-		default void visitMethod(String owner, String name, String descriptor, AccessType access, boolean transitive) {
-		}
-
-		/**
-		 * Visits a widened field.
-		 *
-		 * @param owner      the name of the containing class
-		 * @param name       the name of the field
-		 * @param descriptor the type of the field as a type descriptor
-		 * @param access     the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#MUTABLE})
-		 * @param transitive     whether this widener should be applied across mod boundaries
-		 */
-		default void visitField(String owner, String name, String descriptor, AccessType access, boolean transitive) {
 		}
 	}
 }

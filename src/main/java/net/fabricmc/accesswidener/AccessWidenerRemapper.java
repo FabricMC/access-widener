@@ -19,13 +19,13 @@ package net.fabricmc.accesswidener;
 import org.objectweb.asm.commons.Remapper;
 
 /**
- * Decorates a {@link net.fabricmc.accesswidener.AccessWidenerReader.Visitor} with a {@link Remapper}
+ * Decorates a {@link AccessWidenerVisitor} with a {@link Remapper}
  * to remap names passing through the visitor if they come from a different namespace.
  */
-public final class RemappingDecorator implements AccessWidenerReader.Visitor {
+public final class AccessWidenerRemapper implements AccessWidenerVisitor {
 	private final Provider remapperProvider;
 	private final String targetNamespace;
-	private final AccessWidenerReader.Visitor delegate;
+	private final AccessWidenerVisitor delegate;
 	// is null while no header was read or when no remapping should occur
 	private Remapper remapper;
 
@@ -35,8 +35,8 @@ public final class RemappingDecorator implements AccessWidenerReader.Visitor {
 	 *                         Can return null to indicate no remapping should occur for this namespace.
 	 * @param targetNamespace The namespace that the access widener will be remapped to.
 	 */
-	public RemappingDecorator(
-			AccessWidenerReader.Visitor delegate,
+	public AccessWidenerRemapper(
+			AccessWidenerVisitor delegate,
 			Provider remapperProvider,
 			String targetNamespace
 	) {

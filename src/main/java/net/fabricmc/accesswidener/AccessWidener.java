@@ -23,7 +23,7 @@ import java.util.Set;
 
 import org.objectweb.asm.Opcodes;
 
-public final class AccessWidener implements AccessWidenerReader.Visitor {
+public final class AccessWidener implements AccessWidenerVisitor {
 	String namespace;
 	// Contains the actual transforms. Class names are as class-file internal binary names (forward slash is used
 	// instead of period as the package separator).

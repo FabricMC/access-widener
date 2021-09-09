@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.objectweb.asm.commons.Remapper;
 import org.objectweb.asm.commons.SimpleRemapper;
 
-class RemappingDecoratorTest {
+class AccessWidenerRemapperTest {
 	SimpleRemapper remapper;
 
 	@BeforeEach
@@ -55,14 +55,14 @@ class RemappingDecoratorTest {
 	@Test
 	void testRemappingForDifferentNamespace() throws Exception {
 		AccessWidenerWriter writer = new AccessWidenerWriter();
-		accept(new RemappingDecorator(writer, this::getRemapper, "different_namespace"));
+		accept(new AccessWidenerRemapper(writer, this::getRemapper, "different_namespace"));
 		assertEquals(readReferenceContent("Remapped.txt"), writer.writeString());
 	}
 
 	@Test
 	void testNoRemappingForSameNamespace() {
 		AccessWidenerWriter remappedWriter = new AccessWidenerWriter();
-		accept(new RemappingDecorator(remappedWriter, this::getRemapper, "original_namespace"));
+		accept(new AccessWidenerRemapper(remappedWriter, this::getRemapper, "original_namespace"));
 
 		// Write out the same stream without a remapper and check it's the same
 		AccessWidenerWriter writer = new AccessWidenerWriter();
@@ -71,7 +71,7 @@ class RemappingDecoratorTest {
 		assertEquals(writer.writeString(), remappedWriter.writeString());
 	}
 
-	void accept(AccessWidenerReader.Visitor visitor) {
+	void accept(AccessWidenerVisitor visitor) {
 		visitor.visitHeader("original_namespace");
 		visitor.visitClass("a/Class", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 		visitor.visitClass("x/Class", AccessWidenerReader.AccessType.EXTENDABLE, false);

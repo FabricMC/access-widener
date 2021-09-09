@@ -37,7 +37,7 @@ public class AccessWidenerTest {
 
 	/**
 	 * Checks that the parents of inner classes are also added as targets, even if there's no access widener
-	 * targeting them directly. This is needed for {@link AccessWidenerVisitor#visitInnerClass} to work.
+	 * targeting them directly. This is needed for {@link AccessWidenerClassVisitor#visitInnerClass} to work.
 	 */
 	@Test
 	void testParentClassesAreAddedAsTargetsForInnerClasses() {
