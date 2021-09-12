@@ -38,7 +38,7 @@ public final class AccessWidenerReader {
 
 	// Access widener format versions
 	private static final int V1 = 1;
-	private static final int V2 = 1;
+	private static final int V2 = 2;
 
 	private final AccessWidenerVisitor visitor;
 
@@ -46,6 +46,20 @@ public final class AccessWidenerReader {
 
 	public AccessWidenerReader(AccessWidenerVisitor visitor) {
 		this.visitor = visitor;
+	}
+
+	public static int readVersion(byte[] content) {
+		String strContent = new String(content, ENCODING);
+
+		try {
+			return readVersion(new BufferedReader(new StringReader(strContent)));
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	public static int readVersion(BufferedReader reader) throws IOException {
+		return readHeader(reader).version;
 	}
 
 	public void read(byte[] content) {
@@ -67,20 +81,16 @@ public final class AccessWidenerReader {
 	}
 
 	public void read(BufferedReader reader, String currentNamespace) throws IOException {
-		String[] header = reader.readLine().split("\\s+");
+		Header header = readHeader(reader);
 		lineNumber = 1;
 
-		if (header.length != 3 || !header[0].equals("accessWidener")) {
-			throw error("Invalid access widener file header. Expected: 'accessWidener <version> <namespace>'");
+		int version = header.version;
+
+		if (currentNamespace != null && !header.namespace.equals(currentNamespace)) {
+			throw error("Namespace (%s) does not match current runtime namespace (%s)", header.namespace, currentNamespace);
 		}
 
-		int version = parseVersion(header[1]);
-
-		if (currentNamespace != null && !header[2].equals(currentNamespace)) {
-			throw error("Namespace (%s) does not match current runtime namespace (%s)", header[2], currentNamespace);
-		}
-
-		visitor.visitHeader(version, header[2]);
+		visitor.visitHeader(header.namespace);
 
 		String line;
 
@@ -134,6 +144,35 @@ public final class AccessWidenerReader {
 				throw error("Unsupported type: '" + tokens.get(1) + "'");
 			}
 		}
+	}
+
+	private static Header readHeader(BufferedReader reader) throws IOException {
+		String headerLine = reader.readLine();
+		String[] header = headerLine.split("\\s+");
+
+		if (header.length != 3 || !header[0].equals("accessWidener")) {
+			throw new AccessWidenerFormatException(
+					1,
+					"Invalid access widener file header. Expected: 'accessWidener <version> <namespace>'"
+			);
+		}
+
+		int version;
+		switch (header[1]) {
+		case "v1":
+			version = V1;
+			break;
+		case "v2":
+			version = V2;
+			break;
+		default:
+			throw new AccessWidenerFormatException(
+					1,
+					"Unsupported access widener format: " + header[1]
+			);
+		}
+
+		return new Header(version, header[2]);
 	}
 
 	private void handleClass(String line, List<String> tokens, boolean transitive, AccessType access) {
@@ -204,17 +243,6 @@ public final class AccessWidenerReader {
 		return line;
 	}
 
-	private int parseVersion(String versionString) {
-		switch (versionString) {
-		case "v1":
-			return V1;
-		case "v2":
-			return V2;
-		default:
-			throw error("Unsupported access widener format (%s)", versionString);
-		}
-	}
-
 	private AccessType readAccessType(String access) {
 		switch (access.toLowerCase(Locale.ROOT)) {
 		case "accessible":
@@ -257,6 +285,16 @@ public final class AccessWidenerReader {
 		// Common mistake is using periods to separate packages/class names
 		if (className.contains(".")) {
 			throw error("Class-names must be specified as a/b/C, not a.b.C, but found: %s", className);
+		}
+	}
+
+	private static class Header {
+		private final int version;
+		private final String namespace;
+
+		Header(int version, String namespace) {
+			this.version = version;
+			this.namespace = namespace;
 		}
 	}
 }

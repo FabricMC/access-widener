@@ -31,7 +31,6 @@ import java.util.Objects;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.objectweb.asm.commons.Remapper;
 import org.objectweb.asm.commons.SimpleRemapper;
 
 class AccessWidenerRemapperTest {
@@ -49,49 +48,26 @@ class AccessWidenerRemapperTest {
 		remapper = new SimpleRemapper(mappings);
 	}
 
-	Remapper getRemapper(String from, String to) {
-		assertEquals("original_namespace", from);
-		return remapper;
-	}
-
 	@Test
 	void testRemappingWithUnexpectedNamespace() {
+		AccessWidenerWriter writer = new AccessWidenerWriter();
+		AccessWidenerRemapper awRemapper = new AccessWidenerRemapper(writer, this.remapper, "expected_namespace", "target");
 		IllegalArgumentException e = assertThrows(
 				IllegalArgumentException.class,
-				() -> new AccessWidenerRemapper(new AccessWidenerWriter(), remapper, "expected_namespace", "target")
-						.visitHeader(1, "unexpected_namespace")
+				() -> awRemapper.visitHeader("unexpected_namespace")
 		);
 		assertThat(e).hasMessageContaining("Cannot remap access widener from namespace 'unexpected_namespace'");
 	}
 
 	@Test
-	void testRemappingUsingShortcutConstructor() throws Exception {
+	void testRemapping() throws Exception {
 		AccessWidenerWriter writer = new AccessWidenerWriter();
 		accept(new AccessWidenerRemapper(writer, remapper, "original_namespace", "different_namespace"));
 		assertEquals(readReferenceContent("Remapped.txt"), writer.writeString());
 	}
 
-	@Test
-	void testRemappingForDifferentNamespace() throws Exception {
-		AccessWidenerWriter writer = new AccessWidenerWriter();
-		accept(new AccessWidenerRemapper(writer, this::getRemapper, "different_namespace"));
-		assertEquals(readReferenceContent("Remapped.txt"), writer.writeString());
-	}
-
-	@Test
-	void testNoRemappingForSameNamespace() {
-		AccessWidenerWriter remappedWriter = new AccessWidenerWriter();
-		accept(new AccessWidenerRemapper(remappedWriter, this::getRemapper, "original_namespace"));
-
-		// Write out the same stream without a remapper and check it's the same
-		AccessWidenerWriter writer = new AccessWidenerWriter();
-		accept(writer);
-
-		assertEquals(writer.writeString(), remappedWriter.writeString());
-	}
-
 	void accept(AccessWidenerVisitor visitor) {
-		visitor.visitHeader(1, "original_namespace");
+		visitor.visitHeader("original_namespace");
 		visitor.visitClass("a/Class", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 		visitor.visitClass("x/Class", AccessWidenerReader.AccessType.EXTENDABLE, false);
 		visitor.visitMethod("a/Class", "someMethod", "()I", AccessWidenerReader.AccessType.ACCESSIBLE, false);

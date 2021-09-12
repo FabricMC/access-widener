@@ -40,7 +40,7 @@ class AccessWidenerWriterTest {
 	void testWriteWidenerV1() throws Exception {
 		String expectedContent = readReferenceContent("AccessWidenerWriterTest_v1.txt");
 
-		AccessWidenerWriter writer = new AccessWidenerWriter();
+		AccessWidenerWriter writer = new AccessWidenerWriter(1);
 		accept(writer, false);
 
 		assertEquals(expectedContent, writer.writeString());
@@ -59,9 +59,9 @@ class AccessWidenerWriterTest {
 	@Test
 	void testCanMergeMultipleRunsIntoOneFile() {
 		AccessWidenerWriter writer = new AccessWidenerWriter();
-		writer.visitHeader(2, "ns1");
+		writer.visitHeader("ns1");
 		writer.visitClass("SomeClass", AccessWidenerReader.AccessType.ACCESSIBLE, false);
-		writer.visitHeader(1, "ns1");
+		writer.visitHeader("ns1");
 		writer.visitClass("SomeClass", AccessWidenerReader.AccessType.EXTENDABLE, false);
 		assertEquals("accessWidener\tv2\tns1\n"
 				+ "accessible\tclass\tSomeClass\n"
@@ -71,16 +71,15 @@ class AccessWidenerWriterTest {
 	@Test
 	void testDoesNotAllowDifferentNamespacesWhenMerging() {
 		AccessWidenerWriter writer = new AccessWidenerWriter();
-		writer.visitHeader(1, "ns1");
-		assertThrows(Exception.class, () -> writer.visitHeader(1, "ns2"));
+		writer.visitHeader("ns1");
+		assertThrows(Exception.class, () -> writer.visitHeader("ns2"));
 	}
 
 	@Test
 	void testRejectsWritingV2FeaturesInV1Version() {
-		AccessWidenerWriter writer = new AccessWidenerWriter();
-		writer.visitHeader(1, "ns1");
-		writer.visitClass("name", AccessWidenerReader.AccessType.EXTENDABLE, true);
-		Exception e = assertThrows(Exception.class, writer::writeString);
+		AccessWidenerWriter writer = new AccessWidenerWriter(1);
+		writer.visitHeader("ns1");
+		Exception e = assertThrows(Exception.class, () -> writer.visitClass("name", AccessWidenerReader.AccessType.EXTENDABLE, true));
 		assertThat(e).hasMessageContaining("Cannot write transitive rule in version 1");
 	}
 
@@ -93,7 +92,7 @@ class AccessWidenerWriterTest {
 	}
 
 	private void accept(AccessWidenerVisitor visitor, boolean includeV2Content) {
-		visitor.visitHeader(includeV2Content ? 2 : 1, "somenamespace");
+		visitor.visitHeader("somenamespace");
 
 		visitor.visitClass("pkg/AccessibleClass", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 		visitor.visitClass("pkg/ExtendableClass", AccessWidenerReader.AccessType.EXTENDABLE, false);

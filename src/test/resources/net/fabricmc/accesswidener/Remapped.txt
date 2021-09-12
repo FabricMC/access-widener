@@ -1,4 +1,4 @@
-accessWidener	v1	different_namespace
+accessWidener	v2	different_namespace
 accessible	class	newa/NewClass
 extendable	class	newx/NewClass
 accessible	method	newa/NewClass	otherMethod	()I

@@ -25,6 +25,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -42,6 +43,39 @@ public class AccessWidenerReaderTest {
 	AccessWidenerReader reader = new AccessWidenerReader(visitor);
 
 	@Nested
+	class ReadVersion {
+		@Test
+		public void throwsOnInvalidFileHeader() {
+			assertFormatError(
+					"Invalid access widener file header. Expected: 'accessWidener <version> <namespace>'",
+					() -> readVersion("accessWidenerX junk junk")
+			);
+		}
+
+		@Test
+		public void throwsOnUnsupportedVersion() {
+			assertFormatError(
+					"Unsupported access widener format: v99",
+					() -> readVersion("accessWidener v99 junk")
+			);
+		}
+
+		@Test
+		public void readVersion1() {
+			assertEquals(1, readVersion("accessWidener v1 junk"));
+		}
+
+		@Test
+		public void readVersion2() {
+			assertEquals(2, readVersion("accessWidener v2 junk"));
+		}
+
+		private int readVersion(String headerLine) {
+			return AccessWidenerReader.readVersion(headerLine.getBytes(StandardCharsets.UTF_8));
+		}
+	}
+
+	@Nested
 	class Header {
 		@Test
 		public void throwsOnInvalidFileHeader() {
@@ -54,7 +88,7 @@ public class AccessWidenerReaderTest {
 		@Test
 		public void throwsOnUnsupportedVersion() {
 			assertFormatError(
-					"Unsupported access widener format (v99)",
+					"Unsupported access widener format: v99",
 					() -> parse("accessWidener v99 junk\nxxx")
 			);
 		}

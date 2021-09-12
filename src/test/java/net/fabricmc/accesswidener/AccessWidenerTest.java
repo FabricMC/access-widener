@@ -30,8 +30,8 @@ public class AccessWidenerTest {
 	// all files use the same namespace.
 	@Test
 	public void testNamespaceConflictsAreChecked() {
-		widener.visitHeader(1, "namespace1");
-		Exception e = assertThrows(Exception.class, () -> widener.visitHeader(1, "namespace2"));
+		widener.visitHeader("namespace1");
+		Exception e = assertThrows(Exception.class, () -> widener.visitHeader("namespace2"));
 		assertEquals("Namespace mismatch, expected namespace1 got namespace2", e.getMessage());
 	}
 
