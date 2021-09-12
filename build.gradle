@@ -14,7 +14,7 @@ group "net.fabricmc"
 archivesBaseName = "access-widener"
 
 def ENV = System.getenv()
-version = "1.1.0"
+version = "2.0.0"
 logger.lifecycle("Building AccessWidener: " + version)
 
 repositories {

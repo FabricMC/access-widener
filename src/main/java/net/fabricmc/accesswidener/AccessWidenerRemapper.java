@@ -16,66 +16,71 @@
 
 package net.fabricmc.accesswidener;
 
-import java.util.Map;
-
 import org.objectweb.asm.commons.Remapper;
 
-public final class AccessWidenerRemapper {
-	private final AccessWidener input;
-	private final String to;
+/**
+ * Decorates a {@link AccessWidenerVisitor} with a {@link Remapper}
+ * to remap names passing through the visitor if they come from a different namespace.
+ */
+public final class AccessWidenerRemapper implements AccessWidenerVisitor {
+	private final AccessWidenerVisitor delegate;
+	private final String fromNamespace;
+	private final String toNamespace;
 	private final Remapper remapper;
 
 	/**
-	 * @param input The access widener to remap. It will not be modified.
-	 * @param to    The namespace that the access widener will be remapped to by the given remapper.
+	 * @param delegate      The visitor to forward the remapped information to.
+	 * @param remapper      Will be used to remap names found in the access widener.
+	 * @param fromNamespace The expected namespace of the access widener being remapped. Remapping fails if the
+	 *                      actual namespace is different.
+	 * @param toNamespace   The namespace that the access widener will be remapped to.
 	 */
-	public AccessWidenerRemapper(AccessWidener input, Remapper remapper, String to) {
-		this.input = input;
-		this.to = to;
+	public AccessWidenerRemapper(
+			AccessWidenerVisitor delegate,
+			Remapper remapper,
+			String fromNamespace,
+			String toNamespace
+	) {
+		this.delegate = delegate;
+		this.fromNamespace = fromNamespace;
+		this.toNamespace = toNamespace;
 		this.remapper = remapper;
 	}
 
-	/**
-	 * @return Either the original access widener if no remapping is necessary, or a new access widener that contains
-	 * remapped names.
-	 */
-	public AccessWidener remap() {
-		// Dont remap if we dont need to
-		if (input.namespace.equals(to)) {
-			return input;
+	@Override
+	public void visitHeader(String namespace) {
+		if (!this.fromNamespace.equals(namespace)) {
+			throw new IllegalArgumentException("Cannot remap access widener from namespace '" + namespace + "'."
+					+ " Expected: '" + this.fromNamespace + "'");
 		}
 
-		AccessWidener remapped = new AccessWidener();
-		remapped.namespace = to;
-
-		for (Map.Entry<String, AccessWidener.Access> entry : input.classAccess.entrySet()) {
-			remapped.classAccess.put(remapper.map(entry.getKey()), entry.getValue());
-		}
-
-		for (Map.Entry<EntryTriple, AccessWidener.Access> entry : input.methodAccess.entrySet()) {
-			remapped.addOrMerge(remapped.methodAccess, remapMethod(entry.getKey()), entry.getValue());
-		}
-
-		for (Map.Entry<EntryTriple, AccessWidener.Access> entry : input.fieldAccess.entrySet()) {
-			remapped.addOrMerge(remapped.fieldAccess, remapField(entry.getKey()), entry.getValue());
-		}
-
-		return remapped;
+		delegate.visitHeader(toNamespace);
 	}
 
-	private EntryTriple remapMethod(EntryTriple entryTriple) {
-		return new EntryTriple(
-				remapper.map(entryTriple.getOwner()),
-				remapper.mapMethodName(entryTriple.getOwner(), entryTriple.getName(), entryTriple.getDesc()),
-				remapper.mapDesc(entryTriple.getDesc())
+	@Override
+	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
+		delegate.visitClass(remapper.map(name), access, transitive);
+	}
+
+	@Override
+	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+		delegate.visitMethod(
+				remapper.map(owner),
+				remapper.mapMethodName(owner, name, descriptor),
+				remapper.mapDesc(descriptor),
+				access,
+				transitive
 		);
 	}
 
-	private EntryTriple remapField(EntryTriple entryTriple) {
-		return new EntryTriple(
-				remapper.map(entryTriple.getOwner()),
-				remapper.mapFieldName(entryTriple.getOwner(), entryTriple.getName(), entryTriple.getDesc()),
-				remapper.mapDesc(entryTriple.getDesc())
+	@Override
+	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+		delegate.visitField(
+				remapper.map(owner),
+				remapper.mapFieldName(owner, name, descriptor),
+				remapper.mapDesc(descriptor),
+				access,
+				transitive
 		);
 	}
 }

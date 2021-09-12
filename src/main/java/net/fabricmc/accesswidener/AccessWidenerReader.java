@@ -18,110 +18,229 @@ package net.fabricmc.accesswidener;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.StringReader;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 public final class AccessWidenerReader {
-	private final Visitor visitor;
+	public static final Charset ENCODING = StandardCharsets.UTF_8;
+
+	// Also includes some weirdness such as vertical tabs
+	private static final Pattern V1_DELIMITER = Pattern.compile("\\s+");
+	// Only spaces or tabs
+	private static final Pattern V2_DELIMITER = Pattern.compile("[ \\t]+");
+	// Prefix used on access types to denote the entry should be inherited by mods depending on this mod
+	private static final String TRANSITIVE_PREFIX = "transitive-";
+
+	// Access widener format versions
+	private static final int V1 = 1;
+	private static final int V2 = 2;
+
+	private final AccessWidenerVisitor visitor;
 
 	private int lineNumber;
 
-	public AccessWidenerReader(AccessWidener accessWidener) {
-		this.visitor = accessWidener;
-	}
-
-	public AccessWidenerReader(Visitor visitor) {
+	public AccessWidenerReader(AccessWidenerVisitor visitor) {
 		this.visitor = visitor;
 	}
 
+	public static int readVersion(byte[] content) {
+		String strContent = new String(content, ENCODING);
+
+		try {
+			return readVersion(new BufferedReader(new StringReader(strContent)));
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	public static int readVersion(BufferedReader reader) throws IOException {
+		return readHeader(reader).version;
+	}
+
+	public void read(byte[] content) {
+		read(content, null);
+	}
+
+	public void read(byte[] content, String currentNamespace) {
+		String strContent = new String(content, ENCODING);
+
+		try {
+			read(new BufferedReader(new StringReader(strContent)), currentNamespace);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
 	public void read(BufferedReader reader) throws IOException {
-		this.read(reader, null);
+		read(reader, null);
 	}
 
 	public void read(BufferedReader reader, String currentNamespace) throws IOException {
-		String[] header = reader.readLine().split("\\s+");
+		Header header = readHeader(reader);
 		lineNumber = 1;
 
-		if (header.length != 3 || !header[0].equals("accessWidener")) {
-			throw error("Invalid access widener file header. Expected: 'accessWidener <version> <namespace>'");
+		int version = header.version;
+
+		if (currentNamespace != null && !header.namespace.equals(currentNamespace)) {
+			throw error("Namespace (%s) does not match current runtime namespace (%s)", header.namespace, currentNamespace);
 		}
 
-		if (!header[1].equals("v1")) {
-			throw error("Unsupported access widener format (%s)", header[1]);
-		}
-
-		if (currentNamespace != null && !header[2].equals(currentNamespace)) {
-			throw error("Namespace (%s) does not match current runtime namespace (%s)", header[2], currentNamespace);
-		}
-
-		visitor.visitHeader(header[2]);
+		visitor.visitHeader(header.namespace);
 
 		String line;
+
+		Pattern delimiter = version < V2 ? V1_DELIMITER : V2_DELIMITER;
 
 		while ((line = reader.readLine()) != null) {
 			lineNumber++;
 
-			//Comment handling
-			int commentPos = line.indexOf('#');
+			line = handleComment(version, line);
 
-			if (commentPos >= 0) {
-				line = line.substring(0, commentPos).trim();
+			if (line.isEmpty()) {
+				continue;
 			}
-
-			if (line.isEmpty()) continue;
 
 			if (Character.isWhitespace(line.codePointAt(0))) {
 				throw error("Leading whitespace is not allowed");
 			}
 
-			String[] split = line.split("\\s+");
+			// Note that this trims trailing spaces. See the docs of split for details.
+			List<String> tokens = Arrays.asList(delimiter.split(line));
 
-			AccessType access = readAccessType(split[0]);
+			String accessType = tokens.get(0);
 
-			if (split.length < 2) {
-				throw error("Expected <class|field|method> following " + split[0]);
+			boolean transitive = false;
+
+			if (version >= V2) {
+				// transitive access widener flag
+				if (accessType.startsWith(TRANSITIVE_PREFIX)) {
+					accessType = accessType.substring(TRANSITIVE_PREFIX.length());
+					transitive = true;
+				}
 			}
 
-			switch (split[1]) {
+			AccessType access = readAccessType(accessType);
+
+			if (tokens.size() < 2) {
+				throw error("Expected <class|field|method> following " + tokens.get(0));
+			}
+
+			switch (tokens.get(1)) {
 			case "class":
-				if (split.length != 3) {
-					throw error("Expected (<access> class <className>) got (%s)", line);
-				}
-
-				try {
-					visitor.visitClass(split[2], access);
-				} catch (Exception e) {
-					throw error(e.toString());
-				}
-
+				handleClass(line, tokens, transitive, access);
 				break;
 			case "field":
-				if (split.length != 5) {
-					throw error("Expected (<access> field <className> <fieldName> <fieldDesc>) got (%s)", line);
-				}
-
-				try {
-					visitor.visitField(split[2], split[3], split[4], access);
-				} catch (Exception e) {
-					throw error(e.toString());
-				}
-
+				handleField(line, tokens, transitive, access);
 				break;
 			case "method":
-				if (split.length != 5) {
-					throw error("Expected (<access> method <className> <methodName> <methodDesc>) got (%s)", line);
-				}
-
-				try {
-					visitor.visitMethod(split[2], split[3], split[4], access);
-				} catch (Exception e) {
-					throw error(e.toString());
-				}
-
+				handleMethod(line, tokens, transitive, access);
 				break;
 			default:
-				throw error("Unsupported type " + split[1]);
+				throw error("Unsupported type: '" + tokens.get(1) + "'");
 			}
 		}
+	}
+
+	private static Header readHeader(BufferedReader reader) throws IOException {
+		String headerLine = reader.readLine();
+		String[] header = headerLine.split("\\s+");
+
+		if (header.length != 3 || !header[0].equals("accessWidener")) {
+			throw new AccessWidenerFormatException(
+					1,
+					"Invalid access widener file header. Expected: 'accessWidener <version> <namespace>'"
+			);
+		}
+
+		int version;
+		switch (header[1]) {
+		case "v1":
+			version = V1;
+			break;
+		case "v2":
+			version = V2;
+			break;
+		default:
+			throw new AccessWidenerFormatException(
+					1,
+					"Unsupported access widener format: " + header[1]
+			);
+		}
+
+		return new Header(version, header[2]);
+	}
+
+	private void handleClass(String line, List<String> tokens, boolean transitive, AccessType access) {
+		if (tokens.size() != 3) {
+			throw error("Expected (<access> class <className>) got (%s)", line);
+		}
+
+		String name = tokens.get(2);
+		validateClassName(name);
+
+		try {
+			visitor.visitClass(name, access, transitive);
+		} catch (Exception e) {
+			throw error(e.toString());
+		}
+	}
+
+	private void handleField(String line, List<String> tokens, boolean transitive, AccessType access) {
+		if (tokens.size() != 5) {
+			throw error("Expected (<access> field <className> <fieldName> <fieldDesc>) got (%s)", line);
+		}
+
+		String owner = tokens.get(2);
+		String fieldName = tokens.get(3);
+		String descriptor = tokens.get(4);
+
+		validateClassName(owner);
+
+		try {
+			visitor.visitField(owner, fieldName, descriptor, access, transitive);
+		} catch (Exception e) {
+			throw error(e.toString());
+		}
+	}
+
+	private void handleMethod(String line, List<String> tokens, boolean transitive, AccessType access) {
+		if (tokens.size() != 5) {
+			throw error("Expected (<access> method <className> <methodName> <methodDesc>) got (%s)", line);
+		}
+
+		String owner = tokens.get(2);
+		String methodName = tokens.get(3);
+		String descriptor = tokens.get(4);
+
+		validateClassName(owner);
+
+		try {
+			visitor.visitMethod(owner, methodName, descriptor, access, transitive);
+		} catch (Exception e) {
+			throw error(e.toString());
+		}
+	}
+
+	private String handleComment(int version, String line) {
+		//Comment handling
+		int commentPos = line.indexOf('#');
+
+		if (commentPos >= 0) {
+			line = line.substring(0, commentPos);
+
+			// In V1, trimming led to leading whitespace being tolerated
+			// The tailing whitespace is already stripped by the split below
+			if (version <= V1) {
+				line = line.trim();
+			}
+		}
+
+		return line;
 	}
 
 	private AccessType readAccessType(String access) {
@@ -162,44 +281,20 @@ public final class AccessWidenerReader {
 		return new AccessWidenerFormatException(lineNumber, message);
 	}
 
-	public interface Visitor {
-		/**
-		 * Visits the header data.
-		 *
-		 * @param namespace the access widener's mapping namespace
-		 */
-		default void visitHeader(String namespace) {
+	private void validateClassName(String className) {
+		// Common mistake is using periods to separate packages/class names
+		if (className.contains(".")) {
+			throw error("Class-names must be specified as a/b/C, not a.b.C, but found: %s", className);
 		}
+	}
 
-		/**
-		 * Visits a widened class.
-		 *
-		 * @param name   the name of the class
-		 * @param access the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#EXTENDABLE})
-		 */
-		default void visitClass(String name, AccessType access) {
-		}
+	private static class Header {
+		private final int version;
+		private final String namespace;
 
-		/**
-		 * Visits a widened method.
-		 *
-		 * @param owner      the name of the containing class
-		 * @param name       the name of the method
-		 * @param descriptor the method descriptor
-		 * @param access     the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#EXTENDABLE})
-		 */
-		default void visitMethod(String owner, String name, String descriptor, AccessType access) {
-		}
-
-		/**
-		 * Visits a widened field.
-		 *
-		 * @param owner      the name of the containing class
-		 * @param name       the name of the field
-		 * @param descriptor the type of the field as a type descriptor
-		 * @param access     the access type ({@link AccessType#ACCESSIBLE} or {@link AccessType#MUTABLE})
-		 */
-		default void visitField(String owner, String name, String descriptor, AccessType access) {
+		Header(int version, String namespace) {
+			this.version = version;
+			this.namespace = namespace;
 		}
 	}
 }

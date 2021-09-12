@@ -1,4 +1,4 @@
-accessWidener	v1	somenamespace
+accessWidener	v2	somenamespace
 accessible	class	pkg/AccessibleClass
 extendable	class	pkg/ExtendableClass
 accessible	class	pkg/AccessibleExtendableClass
@@ -9,3 +9,6 @@ accessible	method	pkg/AccessibleExtendableClass	method	()V
 extendable	method	pkg/AccessibleExtendableClass	method	()V
 accessible	field	pkg/AccessibleClass	field	I
 mutable	field	pkg/AccessibleClass	finalField	I
+transitive-accessible	class	pkg/TransitiveAccessibleClass
+transitive-accessible	method	pkg/TransitiveAccessibleClass	method	()V
+transitive-accessible	field	pkg/TransitiveAccessibleClass	field	I

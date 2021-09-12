@@ -16,71 +16,83 @@
 
 package net.fabricmc.accesswidener;
 
-import java.io.StringWriter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+public final class AccessWidenerWriter implements AccessWidenerVisitor {
+	private final StringBuilder builder = new StringBuilder();
+	private final int version;
+	private String namespace;
 
-public final class AccessWidenerWriter {
-	private final AccessWidener accessWidener;
-
-	public AccessWidenerWriter(AccessWidener accessWidener) {
-		this.accessWidener = accessWidener;
+	/**
+	 * Constructs a writer that writes an access widener in the given version.
+	 * If features not supported by the version are used, an exception is thrown.
+	 */
+	public AccessWidenerWriter(int version) {
+		this.version = version;
 	}
 
-	public void write(StringWriter writer) {
-		writer.write("accessWidener\tv1\t");
-		writer.write(accessWidener.namespace);
-		writer.write("\n");
+	/**
+	 * Constructs a writer that writes using the latest version.
+	 */
+	public AccessWidenerWriter() {
+		this(2); // Latest version
+	}
 
-		for (Map.Entry<String, AccessWidener.Access> entry : accessWidener.classAccess.entrySet()) {
-			for (String s : getAccesses(entry.getValue())) {
-				writer.write(s);
-				writer.write("\tclass\t");
-				writer.write(entry.getKey());
-				writer.write("\n");
+	@Override
+	public void visitHeader(String namespace) {
+		if (this.namespace == null) {
+			builder.append("accessWidener\tv")
+					.append(version)
+					.append('\t')
+					.append(namespace)
+					.append('\n');
+		} else if (!this.namespace.equals(namespace)) {
+			throw new IllegalArgumentException("Cannot write different namespaces to the same file ("
+					+ this.namespace + " != " + namespace + ")");
+		}
+
+		this.namespace = namespace;
+	}
+
+	@Override
+	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
+		writeAccess(access, transitive);
+		builder.append("\tclass\t").append(name).append('\n');
+	}
+
+	@Override
+	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+		writeAccess(access, transitive);
+		builder.append("\tmethod\t").append(owner).append('\t').append(name)
+				.append('\t').append(descriptor).append('\n');
+	}
+
+	@Override
+	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+		writeAccess(access, transitive);
+		builder.append("\tfield\t").append(owner).append('\t').append(name)
+				.append('\t').append(descriptor).append('\n');
+	}
+
+	public byte[] write() {
+		return writeString().getBytes(AccessWidenerReader.ENCODING);
+	}
+
+	public String writeString() {
+		if (namespace == null) {
+			throw new IllegalStateException("No namespace set. visitHeader wasn't called.");
+		}
+
+		return builder.toString();
+	}
+
+	private void writeAccess(AccessWidenerReader.AccessType access, boolean transitive) {
+		if (transitive) {
+			if (version < 2) {
+				throw new IllegalStateException("Cannot write transitive rule in version " + version);
 			}
+
+			builder.append("transitive-");
 		}
 
-		for (Map.Entry<EntryTriple, AccessWidener.Access> entry : accessWidener.methodAccess.entrySet()) {
-			writeEntry(writer, "method", entry.getKey(), entry.getValue());
-		}
-
-		for (Map.Entry<EntryTriple, AccessWidener.Access> entry : accessWidener.fieldAccess.entrySet()) {
-			writeEntry(writer, "field", entry.getKey(), entry.getValue());
-		}
-	}
-
-	private void writeEntry(StringWriter writer, String type, EntryTriple entryTriple, AccessWidener.Access access) {
-		for (String s : getAccesses(access)) {
-			writer.write(s);
-			writer.write("\t");
-			writer.write(type);
-			writer.write("\t");
-			writer.write(entryTriple.getOwner());
-			writer.write("\t");
-			writer.write(entryTriple.getName());
-			writer.write("\t");
-			writer.write(entryTriple.getDesc());
-			writer.write("\n");
-		}
-	}
-
-	private List<String> getAccesses(AccessWidener.Access access) {
-		List<String> accesses = new ArrayList<>();
-
-		if (access == AccessWidener.ClassAccess.ACCESSIBLE || access == AccessWidener.MethodAccess.ACCESSIBLE || access == AccessWidener.FieldAccess.ACCESSIBLE || access == AccessWidener.MethodAccess.ACCESSIBLE_EXTENDABLE || access == AccessWidener.ClassAccess.ACCESSIBLE_EXTENDABLE || access == AccessWidener.FieldAccess.ACCESSIBLE_MUTABLE) {
-			accesses.add("accessible");
-		}
-
-		if (access == AccessWidener.ClassAccess.EXTENDABLE || access == AccessWidener.MethodAccess.EXTENDABLE || access == AccessWidener.MethodAccess.ACCESSIBLE_EXTENDABLE || access == AccessWidener.ClassAccess.ACCESSIBLE_EXTENDABLE) {
-			accesses.add("extendable");
-		}
-
-		if (access == AccessWidener.FieldAccess.MUTABLE || access == AccessWidener.FieldAccess.ACCESSIBLE_MUTABLE) {
-			accesses.add("mutable");
-		}
-
-		return accesses;
+		builder.append(access);
 	}
 }

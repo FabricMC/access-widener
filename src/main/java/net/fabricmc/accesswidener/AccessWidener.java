@@ -23,7 +23,7 @@ import java.util.Set;
 
 import org.objectweb.asm.Opcodes;
 
-public final class AccessWidener implements AccessWidenerReader.Visitor {
+public final class AccessWidener implements AccessWidenerVisitor {
 	String namespace;
 	// Contains the actual transforms. Class names are as class-file internal binary names (forward slash is used
 	// instead of period as the package separator).
@@ -44,19 +44,19 @@ public final class AccessWidener implements AccessWidenerReader.Visitor {
 	}
 
 	@Override
-	public void visitClass(String name, AccessWidenerReader.AccessType access) {
+	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
 		classAccess.put(name, applyAccess(access, classAccess.getOrDefault(name, ClassAccess.DEFAULT), null));
 		addTargets(name);
 	}
 
 	@Override
-	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access) {
+	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
 		addOrMerge(methodAccess, new EntryTriple(owner, name, descriptor), access, MethodAccess.DEFAULT);
 		addTargets(owner);
 	}
 
 	@Override
-	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access) {
+	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
 		addOrMerge(fieldAccess, new EntryTriple(owner, name, descriptor), access, FieldAccess.DEFAULT);
 		addTargets(owner);
 	}
@@ -70,44 +70,6 @@ public final class AccessWidener implements AccessWidenerReader.Visitor {
 			clazz = clazz.substring(0, clazz.lastIndexOf("$"));
 			classes.add(clazz);
 		}
-	}
-
-	void addOrMerge(Map<EntryTriple, Access> map, EntryTriple entry, Access access) {
-		if (entry == null || access == null) {
-			throw new RuntimeException("Input entry or access is null");
-		}
-
-		Access merged = null;
-
-		if (access instanceof ClassAccess) {
-			merged = ClassAccess.DEFAULT;
-		} else if (access instanceof MethodAccess) {
-			merged = MethodAccess.DEFAULT;
-		} else if (access instanceof FieldAccess) {
-			merged = FieldAccess.DEFAULT;
-		}
-
-		merged = mergeAccess(merged, access);
-
-		map.put(entry, merged);
-	}
-
-	private static Access mergeAccess(Access a, Access b) {
-		Access access = a;
-
-		if (b == ClassAccess.ACCESSIBLE || b == MethodAccess.ACCESSIBLE || b == FieldAccess.ACCESSIBLE || b == MethodAccess.ACCESSIBLE_EXTENDABLE || b == ClassAccess.ACCESSIBLE_EXTENDABLE || b == FieldAccess.ACCESSIBLE_MUTABLE) {
-			access = access.makeAccessible();
-		}
-
-		if (b == ClassAccess.EXTENDABLE || b == MethodAccess.EXTENDABLE || b == MethodAccess.ACCESSIBLE_EXTENDABLE || b == ClassAccess.ACCESSIBLE_EXTENDABLE) {
-			access = access.makeExtendable();
-		}
-
-		if (b == FieldAccess.MUTABLE || b == FieldAccess.ACCESSIBLE_MUTABLE) {
-			access = access.makeMutable();
-		}
-
-		return access;
 	}
 
 	void addOrMerge(Map<EntryTriple, Access> map, EntryTriple entry, AccessWidenerReader.AccessType access, Access defaultAccess) {

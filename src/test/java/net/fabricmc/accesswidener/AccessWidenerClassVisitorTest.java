@@ -37,36 +37,36 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import test.PrivateInnerClass;
 
-class AccessWidenerVisitorTest {
+class AccessWidenerClassVisitorTest {
 	AccessWidener widener = new AccessWidener();
 
 	@Nested
 	class Classes {
 		@Test
 		void testMakeAccessible() throws Exception {
-			widener.visitClass("test/PackagePrivateClass", AccessWidenerReader.AccessType.ACCESSIBLE);
+			widener.visitClass("test/PackagePrivateClass", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 			Class<?> testClass = applyTransformer("test.PackagePrivateClass");
 			assertThat(testClass).isPublic();
 		}
 
 		@Test
 		void testMakeExtendable() throws Exception {
-			widener.visitClass("test/PackagePrivateClass", AccessWidenerReader.AccessType.EXTENDABLE);
+			widener.visitClass("test/PackagePrivateClass", AccessWidenerReader.AccessType.EXTENDABLE, false);
 			Class<?> testClass = applyTransformer("test.PackagePrivateClass");
 			assertThat(testClass).isPublic().isNotFinal();
 		}
 
 		@Test
 		void testMakeAccessibleAndExtendable() throws Exception {
-			widener.visitClass("test/FinalPackagePrivateClass", AccessWidenerReader.AccessType.ACCESSIBLE);
-			widener.visitClass("test/FinalPackagePrivateClass", AccessWidenerReader.AccessType.EXTENDABLE);
+			widener.visitClass("test/FinalPackagePrivateClass", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+			widener.visitClass("test/FinalPackagePrivateClass", AccessWidenerReader.AccessType.EXTENDABLE, false);
 			Class<?> testClass = applyTransformer("test.FinalPackagePrivateClass");
 			assertThat(testClass).isPublic().isNotFinal();
 		}
 
 		@Test
 		void testMakeInnerClassAccessible() throws Exception {
-			widener.visitClass("test/PrivateInnerClass$Inner", AccessWidenerReader.AccessType.ACCESSIBLE);
+			widener.visitClass("test/PrivateInnerClass$Inner", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 			Map<String, Class<?>> classes = applyTransformer();
 			assertThat(classes).containsOnlyKeys("test.PrivateInnerClass$Inner", "test.PrivateInnerClass");
 
@@ -81,7 +81,7 @@ class AccessWidenerVisitorTest {
 
 		@Test
 		void testMakeInnerClassExtendable() throws Exception {
-			widener.visitClass("test/FinalPrivateInnerClass$Inner", AccessWidenerReader.AccessType.EXTENDABLE);
+			widener.visitClass("test/FinalPrivateInnerClass$Inner", AccessWidenerReader.AccessType.EXTENDABLE, false);
 			Map<String, Class<?>> classes = applyTransformer();
 			assertThat(classes).containsOnlyKeys("test.FinalPrivateInnerClass$Inner", "test.FinalPrivateInnerClass");
 
@@ -96,7 +96,7 @@ class AccessWidenerVisitorTest {
 	class Fields {
 		@Test
 		void testMakeAccessible() throws Exception {
-			widener.visitField("test/FieldTests", "privateFinalIntField", "I", AccessWidenerReader.AccessType.ACCESSIBLE);
+			widener.visitField("test/FieldTests", "privateFinalIntField", "I", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 			Class<?> testClass = applyTransformer("test.FieldTests");
 
 			assertEquals("public final", Modifier.toString(testClass.getModifiers()));
@@ -105,7 +105,7 @@ class AccessWidenerVisitorTest {
 
 		@Test
 		void testMakeMutable() throws Exception {
-			widener.visitField("test/FieldTests", "privateFinalIntField", "I", AccessWidenerReader.AccessType.MUTABLE);
+			widener.visitField("test/FieldTests", "privateFinalIntField", "I", AccessWidenerReader.AccessType.MUTABLE, false);
 			Class<?> testClass = applyTransformer("test.FieldTests");
 
 			// making the field mutable does not affect the containing class
@@ -115,8 +115,8 @@ class AccessWidenerVisitorTest {
 
 		@Test
 		void testMakeMutableAndAccessible() throws Exception {
-			widener.visitField("test/FieldTests", "privateFinalIntField", "I", AccessWidenerReader.AccessType.MUTABLE);
-			widener.visitField("test/FieldTests", "privateFinalIntField", "I", AccessWidenerReader.AccessType.ACCESSIBLE);
+			widener.visitField("test/FieldTests", "privateFinalIntField", "I", AccessWidenerReader.AccessType.MUTABLE, false);
+			widener.visitField("test/FieldTests", "privateFinalIntField", "I", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 			Class<?> testClass = applyTransformer("test.FieldTests");
 
 			// Making the field accessible and mutable affects the class visibility
@@ -129,7 +129,7 @@ class AccessWidenerVisitorTest {
 	class Methods {
 		@Test
 		void testMakeAccessible() throws Exception {
-			widener.visitMethod("test/MethodTests", "privateMethod", "()V", AccessWidenerReader.AccessType.ACCESSIBLE);
+			widener.visitMethod("test/MethodTests", "privateMethod", "()V", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 			Class<?> testClass = applyTransformer("test.MethodTests");
 
 			assertEquals("public final", Modifier.toString(testClass.getModifiers()));
@@ -139,7 +139,7 @@ class AccessWidenerVisitorTest {
 
 		@Test
 		void testMakeConstructorAccessible() throws Exception {
-			widener.visitMethod("test/MethodTests", "<init>", "()V", AccessWidenerReader.AccessType.ACCESSIBLE);
+			widener.visitMethod("test/MethodTests", "<init>", "()V", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 			Class<?> testClass = applyTransformer("test.MethodTests");
 
 			assertEquals("public final", Modifier.toString(testClass.getModifiers()));
@@ -149,7 +149,7 @@ class AccessWidenerVisitorTest {
 
 		@Test
 		void testMakeStaticMethodAccessible() throws Exception {
-			widener.visitMethod("test/MethodTests", "staticMethod", "()V", AccessWidenerReader.AccessType.ACCESSIBLE);
+			widener.visitMethod("test/MethodTests", "staticMethod", "()V", AccessWidenerReader.AccessType.ACCESSIBLE, false);
 			Class<?> testClass = applyTransformer("test.MethodTests");
 
 			assertEquals("public final", Modifier.toString(testClass.getModifiers()));
@@ -159,7 +159,7 @@ class AccessWidenerVisitorTest {
 
 		@Test
 		void testMakeExtendable() throws Exception {
-			widener.visitMethod("test/MethodTests", "privateMethod", "()V", AccessWidenerReader.AccessType.EXTENDABLE);
+			widener.visitMethod("test/MethodTests", "privateMethod", "()V", AccessWidenerReader.AccessType.EXTENDABLE, false);
 			Class<?> testClass = applyTransformer("test.MethodTests");
 
 			assertEquals("public", Modifier.toString(testClass.getModifiers()));
@@ -168,8 +168,8 @@ class AccessWidenerVisitorTest {
 
 		@Test
 		void testMakeAccessibleAndExtendable() throws Exception {
-			widener.visitMethod("test/MethodTests", "privateMethod", "()V", AccessWidenerReader.AccessType.ACCESSIBLE);
-			widener.visitMethod("test/MethodTests", "privateMethod", "()V", AccessWidenerReader.AccessType.EXTENDABLE);
+			widener.visitMethod("test/MethodTests", "privateMethod", "()V", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+			widener.visitMethod("test/MethodTests", "privateMethod", "()V", AccessWidenerReader.AccessType.EXTENDABLE, false);
 			Class<?> testClass = applyTransformer("test.MethodTests");
 
 			assertEquals("public", Modifier.toString(testClass.getModifiers()));
@@ -178,7 +178,7 @@ class AccessWidenerVisitorTest {
 
 		@Test
 		void testPrivateMethodCallsAreRewrittenToInvokeVirtual() throws Exception {
-			widener.visitMethod("test/PrivateMethodSubclassTest", "test", "()I", AccessWidenerReader.AccessType.EXTENDABLE);
+			widener.visitMethod("test/PrivateMethodSubclassTest", "test", "()I", AccessWidenerReader.AccessType.EXTENDABLE, false);
 			// We need to ensure that the subclass goes through our hacky class-loader as well
 			widener.getTargets().add("test.PrivateMethodSubclassTest$Subclass");
 			Class<?> testClass = applyTransformer().get("test.PrivateMethodSubclassTest");
@@ -246,7 +246,7 @@ class AccessWidenerVisitorTest {
 							ClassReader classReader = new ClassReader(classData);
 							ClassWriter classWriter = new ClassWriter(0);
 							ClassVisitor visitor = classWriter;
-							visitor = AccessWidenerVisitor.createClassVisitor(Opcodes.ASM9, visitor, widener);
+							visitor = AccessWidenerClassVisitor.createClassVisitor(Opcodes.ASM9, visitor, widener);
 							classReader.accept(visitor, 0);
 							byte[] bytes = classWriter.toByteArray();
 							return defineClass(name, bytes, 0, bytes.length);

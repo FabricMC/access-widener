@@ -17,22 +17,24 @@
 package net.fabricmc.accesswidener;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.entry;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.commons.SimpleRemapper;
 
 class AccessWidenerRemapperTest {
 	SimpleRemapper remapper;
-	AccessWidener widener;
 
 	@BeforeEach
 	void setUp() {
@@ -42,63 +44,41 @@ class AccessWidenerRemapperTest {
 		mappings.put("x/Class", "newx/NewClass");
 		mappings.put("a/Class.someMethod()I", "otherMethod");
 		mappings.put("g/Class.someField", "otherField");
+		mappings.put("z/Interface", "newz/Interface");
 		remapper = new SimpleRemapper(mappings);
-
-		widener = new AccessWidener();
-		widener.visitHeader("original_namespace");
-		widener.visitClass("a/Class", AccessWidenerReader.AccessType.ACCESSIBLE);
-		widener.visitClass("x/Class", AccessWidenerReader.AccessType.EXTENDABLE);
-		widener.visitMethod("a/Class", "someMethod", "()I", AccessWidenerReader.AccessType.ACCESSIBLE);
-		widener.visitField("g/Class", "someField", "I", AccessWidenerReader.AccessType.MUTABLE);
-	}
-
-	@Nested
-	class Remapping {
-		AccessWidener remapped;
-
-		@BeforeEach
-		void remap() {
-			remapped = new AccessWidenerRemapper(widener, remapper, "new_namespace").remap();
-		}
-
-		@Test
-		void testReturnsNewWidener() {
-			assertNotSame(widener, remapped);
-		}
-
-		@Test
-		void testRemappingClassAccess() {
-			assertThat(remapped.classAccess).containsOnly(
-					entry("newa/NewClass", AccessWidener.ClassAccess.ACCESSIBLE),
-					entry("newx/NewClass", AccessWidener.ClassAccess.EXTENDABLE)
-			);
-		}
-
-		@Test
-		void testRemappingMethodAccess() {
-			assertThat(remapped.methodAccess).containsOnly(
-					entry(new EntryTriple("newa/NewClass", "otherMethod", "()I"), AccessWidener.MethodAccess.ACCESSIBLE)
-			);
-		}
-
-		@Test
-		void testRemappingFieldAccess() {
-			assertThat(remapped.fieldAccess).containsOnly(
-					entry(new EntryTriple("newg/NewClass", "otherField", "I"), AccessWidener.FieldAccess.MUTABLE)
-			);
-		}
-
-		@Test
-		@Disabled("This functionality is currently not implemented")
-		void testRemappingClassTargets() {
-			assertThat(remapped.getTargets()).containsOnly(
-					"newa/NewClass", "newx/NewClass"
-			);
-		}
 	}
 
 	@Test
-	void noRemappingIfNamespaceMatches() {
-		assertSame(widener, new AccessWidenerRemapper(widener, remapper, widener.getNamespace()).remap());
+	void testRemappingWithUnexpectedNamespace() {
+		AccessWidenerWriter writer = new AccessWidenerWriter();
+		AccessWidenerRemapper awRemapper = new AccessWidenerRemapper(writer, this.remapper, "expected_namespace", "target");
+		IllegalArgumentException e = assertThrows(
+				IllegalArgumentException.class,
+				() -> awRemapper.visitHeader("unexpected_namespace")
+		);
+		assertThat(e).hasMessageContaining("Cannot remap access widener from namespace 'unexpected_namespace'");
+	}
+
+	@Test
+	void testRemapping() throws Exception {
+		AccessWidenerWriter writer = new AccessWidenerWriter();
+		accept(new AccessWidenerRemapper(writer, remapper, "original_namespace", "different_namespace"));
+		assertEquals(readReferenceContent("Remapped.txt"), writer.writeString());
+	}
+
+	void accept(AccessWidenerVisitor visitor) {
+		visitor.visitHeader("original_namespace");
+		visitor.visitClass("a/Class", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+		visitor.visitClass("x/Class", AccessWidenerReader.AccessType.EXTENDABLE, false);
+		visitor.visitMethod("a/Class", "someMethod", "()I", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+		visitor.visitField("g/Class", "someField", "I", AccessWidenerReader.AccessType.MUTABLE, false);
+	}
+
+	private String readReferenceContent(String name) throws IOException, URISyntaxException {
+		URL resource = Objects.requireNonNull(getClass().getResource(name));
+		String expectedContent = new String(Files.readAllBytes(
+				Paths.get(resource.toURI())
+		));
+		return expectedContent.replace("\r\n", "\n"); // Normalize line endings
 	}
 }

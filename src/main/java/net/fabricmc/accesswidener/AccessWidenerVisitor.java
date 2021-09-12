@@ -16,88 +16,49 @@
 
 package net.fabricmc.accesswidener;
 
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.FieldVisitor;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-
-public final class AccessWidenerVisitor extends ClassVisitor {
-	private final AccessWidener accessWidener;
-	private String className;
-	private int classAccess;
-
-	AccessWidenerVisitor(int api, ClassVisitor classVisitor, AccessWidener accessWidener) {
-		super(api, classVisitor);
-		this.accessWidener = accessWidener;
+/**
+ * A visitor of the entries defined in an access widener file.
+ */
+public interface AccessWidenerVisitor {
+	/**
+	 * Visits the header data.
+	 *
+	 * @param namespace the access widener's mapping namespace
+	 */
+	default void visitHeader(String namespace) {
 	}
 
-	public static ClassVisitor createClassVisitor(int api, ClassVisitor visitor, AccessWidener accessWidener) {
-		return new AccessWidenerVisitor(api, visitor, accessWidener);
+	/**
+	 * Visits a widened class.
+	 *
+	 * @param name       the name of the class
+	 * @param access     the access type ({@link AccessWidenerReader.AccessType#ACCESSIBLE} or {@link AccessWidenerReader.AccessType#EXTENDABLE})
+	 * @param transitive whether this widener should be applied across mod boundaries
+	 */
+	default void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
 	}
 
-	@Override
-	public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-		className = name;
-		classAccess = access;
-
-		super.visit(
-				version,
-				accessWidener.getClassAccess(name).apply(access, name, classAccess),
-				name,
-				signature,
-				superName,
-				interfaces
-		);
+	/**
+	 * Visits a widened method.
+	 *
+	 * @param owner      the name of the containing class
+	 * @param name       the name of the method
+	 * @param descriptor the method descriptor
+	 * @param access     the access type ({@link AccessWidenerReader.AccessType#ACCESSIBLE} or {@link AccessWidenerReader.AccessType#EXTENDABLE})
+	 * @param transitive whether this widener should be applied across mod boundaries
+	 */
+	default void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
 	}
 
-	@Override
-	public void visitInnerClass(String name, String outerName, String innerName, int access) {
-		super.visitInnerClass(
-				name,
-				outerName,
-				innerName,
-				accessWidener.getClassAccess(name).apply(access, name, classAccess)
-		);
-	}
-
-	@Override
-	public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
-		return super.visitField(
-				accessWidener.getFieldAccess(new EntryTriple(className, name, descriptor)).apply(access, name, classAccess),
-				name,
-				descriptor,
-				signature,
-				value
-		);
-	}
-
-	@Override
-	public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
-		return new AccessWidenerMethodVisitor(super.visitMethod(
-				accessWidener.getMethodAccess(new EntryTriple(className, name, descriptor)).apply(access, name, classAccess),
-				name,
-				descriptor,
-				signature,
-				exceptions
-		));
-	}
-
-	private class AccessWidenerMethodVisitor extends MethodVisitor {
-		AccessWidenerMethodVisitor(MethodVisitor methodVisitor) {
-			super(AccessWidenerVisitor.this.api, methodVisitor);
-		}
-
-		@Override
-		public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-			if (opcode == Opcodes.INVOKESPECIAL && owner.equals(className) && !name.equals("<init>")) {
-				AccessWidener.Access methodAccess = accessWidener.getMethodAccess(new EntryTriple(owner, name, descriptor));
-
-				if (methodAccess != AccessWidener.MethodAccess.DEFAULT) {
-					opcode = Opcodes.INVOKEVIRTUAL;
-				}
-			}
-
-			super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
-		}
+	/**
+	 * Visits a widened field.
+	 *
+	 * @param owner      the name of the containing class
+	 * @param name       the name of the field
+	 * @param descriptor the type of the field as a type descriptor
+	 * @param access     the access type ({@link AccessWidenerReader.AccessType#ACCESSIBLE} or {@link AccessWidenerReader.AccessType#MUTABLE})
+	 * @param transitive whether this widener should be applied across mod boundaries
+	 */
+	default void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
 	}
 }
