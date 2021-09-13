@@ -54,6 +54,17 @@ public final class AccessWidenerClassVisitor extends ClassVisitor {
 	}
 
 	@Override
+	public void visitPermittedSubclass(String permittedSubclass) {
+		AccessWidener.Access access = accessWidener.getClassAccess(className);
+
+		if (access == AccessWidener.ClassAccess.EXTENDABLE || access == AccessWidener.ClassAccess.ACCESSIBLE_EXTENDABLE) {
+			return;
+		}
+
+		super.visitPermittedSubclass(permittedSubclass);
+	}
+
+	@Override
 	public void visitInnerClass(String name, String outerName, String innerName, int access) {
 		super.visitInnerClass(
 				name,

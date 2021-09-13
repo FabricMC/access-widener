@@ -7,9 +7,6 @@ plugins {
 	id "org.cadixdev.licenser" version "0.6.1"
 }
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
-
 group "net.fabricmc"
 archivesBaseName = "access-widener"
 
@@ -28,14 +25,24 @@ repositories {
 
 tasks.withType(JavaCompile).configureEach {
 	it.options.encoding = "UTF-8"
+}
 
-	if (JavaVersion.current().isJava9Compatible()) {
-		it.options.release = 8
-	}
+// Main source set builds against java 8
+tasks.getByName(project.sourceSets.main.compileJavaTaskName) {
+	options.release = 8
+	sourceCompatibility = 1.8
+	targetCompatibility = 1.8
+}
+
+// Test source set builds against java 17
+tasks.getByName(project.sourceSets.test.compileJavaTaskName) {
+	options.release = 17
+	sourceCompatibility = 17
+	targetCompatibility = 17
 }
 
 dependencies {
-	def asmVersion = "9.0"
+	def asmVersion = "9.2"
 	def junitVersion = "5.7.2"
 	def assertJVersion = "3.20.2"
 

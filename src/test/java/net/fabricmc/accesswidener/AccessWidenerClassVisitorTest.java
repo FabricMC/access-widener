@@ -90,6 +90,15 @@ class AccessWidenerClassVisitorTest {
 			assertThat(outerClass.getClasses()).containsOnly(innerClass);
 			assertThat(innerClass).isPublic().isNotFinal();
 		}
+
+		@Test
+		void removePermittedClasses() throws Exception {
+			widener.visitClass("test/SealedClass", AccessWidenerReader.AccessType.EXTENDABLE, false);
+			Class<?> testClass = applyTransformer("test.SealedClass");
+
+			assertThat(testClass.getPermittedSubclasses()).isNull();
+			assertThat(testClass).isPublic().isNotFinal();
+		}
 	}
 
 	@Nested
