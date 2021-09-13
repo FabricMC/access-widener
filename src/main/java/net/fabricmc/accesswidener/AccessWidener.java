@@ -253,8 +253,22 @@ public final class AccessWidener implements AccessWidenerVisitor {
 	enum FieldAccess implements Access {
 		DEFAULT((access, name, ownerAccess) -> access),
 		ACCESSIBLE((access, name, ownerAccess) -> makePublic(access)),
-		MUTABLE((access, name, ownerAccess) -> removeFinal(access)),
-		ACCESSIBLE_MUTABLE((access, name, ownerAccess) -> makePublic(removeFinal(access)));
+		MUTABLE((access, name, ownerAccess) -> {
+			if ((ownerAccess & Opcodes.ACC_INTERFACE) != 0 && (access & Opcodes.ACC_STATIC) != 0) {
+				// Don't make static interface fields mutable.
+				return access;
+			}
+
+			return removeFinal(access);
+		}),
+		ACCESSIBLE_MUTABLE((access, name, ownerAccess) -> {
+			if ((ownerAccess & Opcodes.ACC_INTERFACE) != 0 && (access & Opcodes.ACC_STATIC) != 0) {
+				// Don't make static interface fields mutable.
+				return makePublic(access);
+			}
+
+			return makePublic(removeFinal(access));
+		});
 
 		private final AccessOperator operator;
 
