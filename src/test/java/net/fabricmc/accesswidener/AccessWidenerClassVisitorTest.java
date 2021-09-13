@@ -132,6 +132,14 @@ class AccessWidenerClassVisitorTest {
 			assertEquals("public final", Modifier.toString(testClass.getModifiers()));
 			assertEquals("public", Modifier.toString(testClass.getDeclaredField("privateFinalIntField").getModifiers()));
 		}
+
+		@Test
+		void testDontMakeInterfaceMutable() throws Exception {
+			widener.visitField("test/InterfaceTests", "staticFinalIntField", "I", AccessWidenerReader.AccessType.MUTABLE, false);
+			Class<?> testClass = applyTransformer("test.InterfaceTests");
+
+			assertEquals("public static final", Modifier.toString(testClass.getDeclaredField("staticFinalIntField").getModifiers()));
+		}
 	}
 
 	@Nested
