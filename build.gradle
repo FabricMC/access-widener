@@ -34,7 +34,7 @@ tasks.getByName(project.sourceSets.main.compileJavaTaskName) {
 	targetCompatibility = 1.8
 }
 
-// Test source set builds against java 16 and preview features
+// Test source set builds against java 17
 tasks.getByName(project.sourceSets.test.compileJavaTaskName) {
 	options.release = 17
 	sourceCompatibility = 17
