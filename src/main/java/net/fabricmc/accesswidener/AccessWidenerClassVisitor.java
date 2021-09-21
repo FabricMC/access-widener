@@ -20,18 +20,25 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.RecordComponentVisitor;
 
 /**
  * Applies rules from an {@link AccessWidener} by transforming Java classes using an ASM {@link ClassVisitor}.
  */
 public final class AccessWidenerClassVisitor extends ClassVisitor {
 	private final AccessWidener accessWidener;
+	private final boolean strictRecords;
 	private String className;
 	private int classAccess;
 
 	AccessWidenerClassVisitor(int api, ClassVisitor classVisitor, AccessWidener accessWidener) {
+		this(api, classVisitor, accessWidener, true);
+	}
+
+	AccessWidenerClassVisitor(int api, ClassVisitor classVisitor, AccessWidener accessWidener, boolean strictRecords) {
 		super(api, classVisitor);
 		this.accessWidener = accessWidener;
+		this.strictRecords = strictRecords;
 	}
 
 	public static ClassVisitor createClassVisitor(int api, ClassVisitor visitor, AccessWidener accessWidener) {
@@ -43,9 +50,15 @@ public final class AccessWidenerClassVisitor extends ClassVisitor {
 		className = name;
 		classAccess = access;
 
+		AccessWidener.Access classAccess = accessWidener.getClassAccess(name);
+
+		if (strictRecords && "java/lang/Record".equals(superName) && AccessWidener.ClassAccess.isExtendable(classAccess)) {
+			throw new UnsupportedOperationException(String.format("Cannot modify record (%s) access to be extendable", name));
+		}
+
 		super.visit(
 				version,
-				accessWidener.getClassAccess(name).apply(access, name, classAccess),
+				classAccess.apply(access, name, this.classAccess),
 				name,
 				signature,
 				superName,
@@ -55,13 +68,24 @@ public final class AccessWidenerClassVisitor extends ClassVisitor {
 
 	@Override
 	public void visitPermittedSubclass(String permittedSubclass) {
-		AccessWidener.Access access = accessWidener.getClassAccess(className);
-
-		if (access == AccessWidener.ClassAccess.EXTENDABLE || access == AccessWidener.ClassAccess.ACCESSIBLE_EXTENDABLE) {
+		if (AccessWidener.ClassAccess.isExtendable(accessWidener.getClassAccess(className))) {
 			return;
 		}
 
 		super.visitPermittedSubclass(permittedSubclass);
+	}
+
+	@Override
+	public RecordComponentVisitor visitRecordComponent(String name, String descriptor, String signature) {
+		if (strictRecords) {
+			AccessWidener.Access fieldAccess = accessWidener.getFieldAccess(new EntryTriple(className, name, descriptor));
+
+			if (AccessWidener.FieldAccess.isMutable(fieldAccess)) {
+				throw new UnsupportedOperationException(String.format("Cannot modify record (%s) field (%s) access to be mutable", className, name + descriptor));
+			}
+		}
+
+		return super.visitRecordComponent(name, descriptor, signature);
 	}
 
 	@Override
