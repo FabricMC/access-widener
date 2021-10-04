@@ -85,6 +85,7 @@ public final class AccessWidenerReader {
 		lineNumber = 1;
 
 		int version = header.version;
+		visitor.visitVersion(version);
 
 		if (currentNamespace != null && !header.namespace.equals(currentNamespace)) {
 			throw error("Namespace (%s) does not match current runtime namespace (%s)", header.namespace, currentNamespace);

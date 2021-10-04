@@ -21,6 +21,14 @@ package net.fabricmc.accesswidener;
  */
 public interface AccessWidenerVisitor {
 	/**
+	 * Visits the version.
+	 *
+	 * @param version the access widener's version
+	 */
+	default void visitVersion(int version) {
+	}
+
+	/**
 	 * Visits the header data.
 	 *
 	 * @param namespace the access widener's mapping namespace
