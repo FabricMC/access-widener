@@ -18,6 +18,7 @@ package net.fabricmc.accesswidener;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -103,15 +104,30 @@ public final class AccessWidenerClassVisitor extends ClassVisitor {
 
 		@Override
 		public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-			if (opcode == Opcodes.INVOKESPECIAL && owner.equals(className) && !name.equals("<init>")) {
-				AccessWidener.Access methodAccess = accessWidener.getMethodAccess(new EntryTriple(owner, name, descriptor));
-
-				if (methodAccess != AccessWidener.MethodAccess.DEFAULT) {
-					opcode = Opcodes.INVOKEVIRTUAL;
-				}
+			if (opcode == Opcodes.INVOKESPECIAL && isTargetMethod(owner, name, descriptor)) {
+				opcode = Opcodes.INVOKEVIRTUAL;
 			}
 
 			super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+		}
+
+		@Override
+		public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
+			for (int i = 0; i < bootstrapMethodArguments.length; i++) {
+				if (bootstrapMethodArguments[i] instanceof Handle) {
+					Handle handle = (Handle) bootstrapMethodArguments[i];
+
+					if (handle.getTag() == Opcodes.H_INVOKESPECIAL && isTargetMethod(handle.getOwner(), handle.getName(), handle.getDesc())) {
+						bootstrapMethodArguments[i] = new Handle(Opcodes.H_INVOKEVIRTUAL, handle.getOwner(), handle.getName(), handle.getDesc(), handle.isInterface());
+					}
+				}
+			}
+
+			super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
+		}
+
+		private boolean isTargetMethod(String owner, String name, String descriptor) {
+			return owner.equals(className) && !name.equals("<init>") && accessWidener.getMethodAccess(new EntryTriple(owner, name, descriptor)) != AccessWidener.MethodAccess.DEFAULT;
 		}
 	}
 }
