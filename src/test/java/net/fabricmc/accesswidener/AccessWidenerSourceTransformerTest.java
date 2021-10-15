@@ -2,8 +2,6 @@ package net.fabricmc.accesswidener;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Map;
-import java.util.function.Consumer;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ast.CompilationUnit;
@@ -14,13 +12,14 @@ import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ClassLoaderTypeSolver;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import test.PrivateInnerClass;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 
+import net.fabricmc.accesswidener.javaparser.SourceAccessWidenerTransformer;
+
 class AccessWidenerSourceTransformerTest {
-	AccessWidener widener = new AccessWidener();
+	AccessWidener widener = new AccessWidener(true);
 	@Nested
 	class Classes {
 		@Test

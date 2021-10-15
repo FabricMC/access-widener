@@ -16,14 +16,13 @@
 
 package net.fabricmc.accesswidener;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.github.javaparser.ast.Modifier;
 import org.objectweb.asm.Opcodes;
 
 public final class AccessWidener implements AccessWidenerVisitor {
@@ -49,6 +48,18 @@ public final class AccessWidener implements AccessWidenerVisitor {
 	public AccessWidener(boolean requiresSourceCompatibility) {
 		this.requiresSourceCompatibility = requiresSourceCompatibility;
 		this.javaPackages = requiresSourceCompatibility ? new HashSet<>() : null;
+	}
+
+	public boolean isSourceCompatible() {
+		return this.requiresSourceCompatibility;
+	}
+
+	public Set<String> getPackages() {
+		if(this.requiresSourceCompatibility) {
+			return Collections.unmodifiableSet(this.javaPackages);
+		} else {
+			throw new UnsupportedOperationException("Cannot get packages when sourceCompatibility is disabled!");
+		}
 	}
 
 	@Override
@@ -134,15 +145,15 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		classAccess.put(entryTriple.getOwner(), applyAccess(AccessWidenerReader.AccessType.EXTENDABLE, classAccess.getOrDefault(entryTriple.getOwner(), ClassAccess.DEFAULT), null));
 	}
 
-	Access getClassAccess(String className) {
+	public Access getClassAccess(String className) {
 		return classAccess.getOrDefault(className, ClassAccess.DEFAULT);
 	}
 
-	Access getFieldAccess(EntryTriple entryTriple) {
+	public Access getFieldAccess(EntryTriple entryTriple) {
 		return fieldAccess.getOrDefault(entryTriple, FieldAccess.DEFAULT);
 	}
 
-	Access getMethodAccess(EntryTriple entryTriple) {
+	public Access getMethodAccess(EntryTriple entryTriple) {
 		return methodAccess.getOrDefault(entryTriple, MethodAccess.DEFAULT);
 	}
 
@@ -189,7 +200,7 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		return i & ~Opcodes.ACC_FINAL;
 	}
 
-	interface Access extends AccessOperator, SourceOperator {
+	public interface Access extends AccessOperator {
 		Access makeAccessible();
 
 		Access makeExtendable();
@@ -198,17 +209,15 @@ public final class AccessWidener implements AccessWidenerVisitor {
 	}
 
 	enum ClassAccess implements Access {
-		DEFAULT((access, name, ownerAccess) -> access, m -> {}),
-		ACCESSIBLE((access, name, ownerAccess) -> makePublic(access), SourceUtil::makePublic),
-		EXTENDABLE((access, name, ownerAccess) -> makePublic(removeFinal(access)), SourceUtil::makeExtendable),
-		ACCESSIBLE_EXTENDABLE((access, name, ownerAccess) -> makePublic(removeFinal(access)), m -> SourceUtil.makePublic(SourceUtil.makeExtendable(m)));
+		DEFAULT((access, name, ownerAccess) -> access),
+		ACCESSIBLE((access, name, ownerAccess) -> makePublic(access)),
+		EXTENDABLE((access, name, ownerAccess) -> makePublic(removeFinal(access))),
+		ACCESSIBLE_EXTENDABLE((access, name, ownerAccess) -> makePublic(removeFinal(access)));
 
 		private final AccessOperator operator;
-		private final SourceOperator sourceOperator;
 
-		ClassAccess(AccessOperator operator, SourceOperator sourceOperator) {
+		ClassAccess(AccessOperator operator) {
 			this.operator = operator;
-			this.sourceOperator = sourceOperator;
 		}
 
 		@Override
@@ -238,25 +247,18 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		public int apply(int access, String targetName, int ownerAccess) {
 			return operator.apply(access, targetName, ownerAccess);
 		}
-
-		@Override
-		public void apply(List<Modifier> modifiers) {
-			this.sourceOperator.apply(modifiers);
-		}
 	}
 
 	enum MethodAccess implements Access {
-		DEFAULT((access, name, ownerAccess) -> access, m -> {}),
-		ACCESSIBLE((access, name, ownerAccess) -> makePublic(makeFinalIfPrivate(access, name, ownerAccess)), SourceUtil::makePublic),
-		EXTENDABLE((access, name, ownerAccess) -> makeProtected(removeFinal(access)), SourceUtil::makeExtendable),
-		ACCESSIBLE_EXTENDABLE((access, name, owner) -> makePublic(removeFinal(access)), m -> SourceUtil.makePublic(SourceUtil.makeExtendable(m)));
+		DEFAULT((access, name, ownerAccess) -> access),
+		ACCESSIBLE((access, name, ownerAccess) -> makePublic(makeFinalIfPrivate(access, name, ownerAccess))),
+		EXTENDABLE((access, name, ownerAccess) -> makeProtected(removeFinal(access))),
+		ACCESSIBLE_EXTENDABLE((access, name, owner) -> makePublic(removeFinal(access)));
 
 		private final AccessOperator operator;
-		private final SourceOperator sourceOperator;
 
-		MethodAccess(AccessOperator operator, SourceOperator sourceOperator) {
+		MethodAccess(AccessOperator operator) {
 			this.operator = operator;
-			this.sourceOperator = sourceOperator;
 		}
 
 		@Override
@@ -287,15 +289,11 @@ public final class AccessWidener implements AccessWidenerVisitor {
 			return operator.apply(access, targetName, ownerAccess);
 		}
 
-		@Override
-		public void apply(List<Modifier> modifiers) {
-			this.sourceOperator.apply(modifiers);
-		}
 	}
 
 	enum FieldAccess implements Access {
-		DEFAULT((access, name, ownerAccess) -> access, a -> {}),
-		ACCESSIBLE((access, name, ownerAccess) -> makePublic(access), SourceUtil::makePublic),
+		DEFAULT((access, name, ownerAccess) -> access),
+		ACCESSIBLE((access, name, ownerAccess) -> makePublic(access)),
 		MUTABLE((access, name, ownerAccess) -> {
 			if ((ownerAccess & Opcodes.ACC_INTERFACE) != 0 && (access & Opcodes.ACC_STATIC) != 0) {
 				// Don't make static interface fields mutable.
@@ -303,7 +301,7 @@ public final class AccessWidener implements AccessWidenerVisitor {
 			}
 
 			return removeFinal(access);
-		}, SourceUtil::removeFinal),
+		}),
 		ACCESSIBLE_MUTABLE((access, name, ownerAccess) -> {
 			if ((ownerAccess & Opcodes.ACC_INTERFACE) != 0 && (access & Opcodes.ACC_STATIC) != 0) {
 				// Don't make static interface fields mutable.
@@ -311,14 +309,12 @@ public final class AccessWidener implements AccessWidenerVisitor {
 			}
 
 			return makePublic(removeFinal(access));
-		}, m -> SourceUtil.removeFinal(SourceUtil.makePublic(m)));
+		});
 
 		private final AccessOperator operator;
-		private final SourceOperator sourceOperator;
 
-		FieldAccess(AccessOperator operator, SourceOperator sourceOperator) {
+		FieldAccess(AccessOperator operator) {
 			this.operator = operator;
-			this.sourceOperator = sourceOperator;
 		}
 
 		@Override
@@ -349,19 +345,10 @@ public final class AccessWidener implements AccessWidenerVisitor {
 			return operator.apply(access, targetName, ownerAccess);
 		}
 
-		@Override
-		public void apply(List<Modifier> modifiers) {
-			sourceOperator.apply(modifiers);
-		}
 	}
 
 	@FunctionalInterface
 	interface AccessOperator {
 		int apply(int access, String targetName, int ownerAccess);
-	}
-
-	@FunctionalInterface
-	interface SourceOperator {
-		void apply(List<Modifier> modifiers);
 	}
 }

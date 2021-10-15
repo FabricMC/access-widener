@@ -26,8 +26,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
-import com.github.javaparser.ast.CompilationUnit;
-
 public final class AccessWidenerReader {
 	public static final Charset ENCODING = StandardCharsets.UTF_8;
 

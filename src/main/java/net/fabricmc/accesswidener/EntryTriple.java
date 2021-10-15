@@ -16,12 +16,12 @@
 
 package net.fabricmc.accesswidener;
 
-class EntryTriple {
+public class EntryTriple {
 	final String owner;
 	final String name;
 	final String desc;
 
-	static EntryTriple create(String owner, String name, String desc, boolean requiresSourceCompatibility) {
+	public static EntryTriple create(String owner, String name, String desc, boolean requiresSourceCompatibility) {
 		return requiresSourceCompatibility ? new Fuzzy(owner, name, desc) : new EntryTriple(owner, name, desc);
 	}
 
@@ -54,6 +54,8 @@ class EntryTriple {
 			return false;
 		} else if (o == this) {
 			return true;
+		} else if(o instanceof Fuzzy) {
+			return o.equals(this);
 		} else {
 			EntryTriple other = (EntryTriple) o;
 			return other.owner.equals(this.owner) && other.name.equals(this.name) && other.desc.equals(this.desc);
