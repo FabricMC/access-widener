@@ -16,6 +16,8 @@
 
 package test;
 
+import java.util.function.Supplier;
+
 public class PrivateMethodSubclassTest {
 	private int test() {
 		return 123;
@@ -26,11 +28,22 @@ public class PrivateMethodSubclassTest {
 		return test();
 	}
 
+	private int callPrivateMethodWithLambda() {
+		// Private method handles tag in bootstrap method arguments should be H_INVOKESPECIAL
+		Supplier<Integer> supplier = this::test;
+		return supplier.get();
+	}
+
 	public static int callMethodOnSubclass() {
 		// Without making test() extendable or accessible, this will call the private method, even on the subclass
 		// otherwise it'll call the subclasses method. This is detectable from the return value.
 		PrivateMethodSubclassTest r = new Subclass();
 		return r.callPrivateMethod();
+	}
+
+	public static int callMethodWithLambdaOnSubclass() {
+		PrivateMethodSubclassTest r = new Subclass();
+		return r.callPrivateMethodWithLambda();
 	}
 
 	public static class Subclass extends PrivateMethodSubclassTest {

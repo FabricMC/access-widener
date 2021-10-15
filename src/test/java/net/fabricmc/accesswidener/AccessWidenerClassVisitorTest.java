@@ -200,9 +200,11 @@ class AccessWidenerClassVisitorTest {
 			widener.getTargets().add("test.PrivateMethodSubclassTest$Subclass");
 			Class<?> testClass = applyTransformer().get("test.PrivateMethodSubclassTest");
 			int result = (int) testClass.getMethod("callMethodOnSubclass").invoke(null);
+			int resultWithLambda = (int) testClass.getMethod("callMethodWithLambdaOnSubclass").invoke(null);
 			// this signifies that the INVOKESPECIAL instruction got rewritten to INVOKEVIRTUAL and the
 			// method of the same name in the subclass was invoked.
 			assertThat(result).isEqualTo(456);
+			assertThat(resultWithLambda).isEqualTo(456);
 		}
 	}
 
