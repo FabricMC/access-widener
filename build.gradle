@@ -48,6 +48,8 @@ dependencies {
 
 	api "org.ow2.asm:asm:$asmVersion"
 	api "org.ow2.asm:asm-commons:$asmVersion" // For Remapper
+	api 'com.github.javaparser:javaparser-symbol-solver-core:3.23.1'
+
 
 	testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
 	testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$junitVersion"

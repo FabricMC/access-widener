@@ -16,11 +16,17 @@
 
 package net.fabricmc.accesswidener;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
+import com.github.javaparser.ast.Modifier;
+import com.github.javaparser.ast.NodeList;
 import org.objectweb.asm.Opcodes;
 
 public final class AccessWidener implements AccessWidenerVisitor {
@@ -33,6 +39,20 @@ public final class AccessWidener implements AccessWidenerVisitor {
 	// Contains the class-names that are affected by loaded wideners.
 	// Names are period-separated binary names (i.e. a.b.C).
 	final Set<String> classes = new LinkedHashSet<>();
+	/**
+	 * Packages are used here rather than class files as A.java can define B.class (eg. {@code class A {} class B{}})
+	 */
+	final Set<String> javaPackages;
+	final boolean requiresSourceCompatibility;
+
+	public AccessWidener() {
+		this(false);
+	}
+
+	public AccessWidener(boolean requiresSourceCompatibility) {
+		this.requiresSourceCompatibility = requiresSourceCompatibility;
+		this.javaPackages = requiresSourceCompatibility ? new HashSet<>() : null;
+	}
 
 	@Override
 	public void visitHeader(String namespace) {
@@ -46,29 +66,44 @@ public final class AccessWidener implements AccessWidenerVisitor {
 	@Override
 	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
 		classAccess.put(name, applyAccess(access, classAccess.getOrDefault(name, ClassAccess.DEFAULT), null));
-		addTargets(name);
+		addTargets(name, transitive);
 	}
 
 	@Override
 	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
-		addOrMerge(methodAccess, new EntryTriple(owner, name, descriptor), access, MethodAccess.DEFAULT);
-		addTargets(owner);
+		addOrMerge(methodAccess, EntryTriple.create(owner, name, descriptor, this.requiresSourceCompatibility), access, MethodAccess.DEFAULT);
+		addTargets(owner, false);
 	}
 
 	@Override
 	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
-		addOrMerge(fieldAccess, new EntryTriple(owner, name, descriptor), access, FieldAccess.DEFAULT);
-		addTargets(owner);
+		addOrMerge(fieldAccess, EntryTriple.create(owner, name, descriptor, this.requiresSourceCompatibility), access, FieldAccess.DEFAULT);
+		addTargets(owner, false);
 	}
 
-	private void addTargets(String clazz) {
+	private void addTargets(String clazz, boolean requiresInnerClassAttributeTransform) {
 		clazz = clazz.replace('/', '.');
 		classes.add(clazz);
 
 		//Also transform all parent classes
-		while (clazz.contains("$")) {
-			clazz = clazz.substring(0, clazz.lastIndexOf("$"));
-			classes.add(clazz);
+		if(requiresInnerClassAttributeTransform) {
+			while(clazz.contains("$")) {
+				clazz = clazz.substring(0, clazz.lastIndexOf("$"));
+				classes.add(clazz);
+			}
+		}
+
+		if(this.requiresSourceCompatibility) {
+			this.javaPackages.add(getPackage(clazz));
+		}
+	}
+
+	public static String getPackage(String internalName) {
+		int last = internalName.lastIndexOf('/');
+		if(last == -1) {
+			return "";
+		} else {
+			return internalName.substring(0, last);
 		}
 	}
 
@@ -125,6 +160,27 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		return namespace;
 	}
 
+	private static NodeList<Modifier> apply(NodeList<Modifier> modifiers, Predicate<Modifier.Keyword> shouldAdd, Modifier add, Modifier.Keyword... remove) {
+		List<Modifier.Keyword> keywordList = Arrays.asList(remove);
+		modifiers.removeIf(m -> keywordList.contains(m.getKeyword()));
+		if(modifiers.stream().map(Modifier::getKeyword).allMatch(shouldAdd)) {
+			modifiers.add(add);
+		}
+		return modifiers;
+	}
+
+	private static NodeList<Modifier> makePublic(NodeList<Modifier> modifiers) {
+		return apply(modifiers, m -> m != Modifier.Keyword.PUBLIC, Modifier.publicModifier(), Modifier.Keyword.PRIVATE, Modifier.Keyword.PROTECTED);
+	}
+
+	private static NodeList<Modifier> removeFinal(NodeList<Modifier> modifiers) {
+		return apply(modifiers, m -> false, null, Modifier.Keyword.FINAL);
+	}
+
+	private static NodeList<Modifier> makeExtendable(NodeList<Modifier> modifiers) {
+		return apply(modifiers, m -> m != Modifier.Keyword.PUBLIC && m != Modifier.Keyword.PROTECTED, Modifier.protectedModifier(), Modifier.Keyword.FINAL, Modifier.Keyword.PRIVATE);
+	}
+
 	private static int makePublic(int i) {
 		return (i & ~(Opcodes.ACC_PRIVATE | Opcodes.ACC_PROTECTED)) | Opcodes.ACC_PUBLIC;
 	}
@@ -160,7 +216,7 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		return i & ~Opcodes.ACC_FINAL;
 	}
 
-	interface Access extends AccessOperator {
+	interface Access extends AccessOperator, SourceOperator {
 		Access makeAccessible();
 
 		Access makeExtendable();
@@ -169,15 +225,17 @@ public final class AccessWidener implements AccessWidenerVisitor {
 	}
 
 	enum ClassAccess implements Access {
-		DEFAULT((access, name, ownerAccess) -> access),
-		ACCESSIBLE((access, name, ownerAccess) -> makePublic(access)),
-		EXTENDABLE((access, name, ownerAccess) -> makePublic(removeFinal(access))),
-		ACCESSIBLE_EXTENDABLE((access, name, ownerAccess) -> makePublic(removeFinal(access)));
+		DEFAULT((access, name, ownerAccess) -> access, m -> {}),
+		ACCESSIBLE((access, name, ownerAccess) -> makePublic(access), AccessWidener::makePublic),
+		EXTENDABLE((access, name, ownerAccess) -> makePublic(removeFinal(access)), AccessWidener::makeExtendable),
+		ACCESSIBLE_EXTENDABLE((access, name, ownerAccess) -> makePublic(removeFinal(access)), m -> makePublic(AccessWidener.makeExtendable(m)));
 
 		private final AccessOperator operator;
+		private final SourceOperator sourceOperator;
 
-		ClassAccess(AccessOperator operator) {
+		ClassAccess(AccessOperator operator, SourceOperator sourceOperator) {
 			this.operator = operator;
+			this.sourceOperator = sourceOperator;
 		}
 
 		@Override
@@ -207,18 +265,25 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		public int apply(int access, String targetName, int ownerAccess) {
 			return operator.apply(access, targetName, ownerAccess);
 		}
+
+		@Override
+		public void apply(NodeList<Modifier> modifiers) {
+			this.sourceOperator.apply(modifiers);
+		}
 	}
 
 	enum MethodAccess implements Access {
-		DEFAULT((access, name, ownerAccess) -> access),
-		ACCESSIBLE((access, name, ownerAccess) -> makePublic(makeFinalIfPrivate(access, name, ownerAccess))),
-		EXTENDABLE((access, name, ownerAccess) -> makeProtected(removeFinal(access))),
-		ACCESSIBLE_EXTENDABLE((access, name, owner) -> makePublic(removeFinal(access)));
+		DEFAULT((access, name, ownerAccess) -> access, m -> {}),
+		ACCESSIBLE((access, name, ownerAccess) -> makePublic(makeFinalIfPrivate(access, name, ownerAccess)), AccessWidener::makePublic),
+		EXTENDABLE((access, name, ownerAccess) -> makeProtected(removeFinal(access)), AccessWidener::makeExtendable),
+		ACCESSIBLE_EXTENDABLE((access, name, owner) -> makePublic(removeFinal(access)), m -> makePublic(AccessWidener.makeExtendable(m)));
 
 		private final AccessOperator operator;
+		private final SourceOperator sourceOperator;
 
-		MethodAccess(AccessOperator operator) {
+		MethodAccess(AccessOperator operator, SourceOperator sourceOperator) {
 			this.operator = operator;
+			this.sourceOperator = sourceOperator;
 		}
 
 		@Override
@@ -248,11 +313,16 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		public int apply(int access, String targetName, int ownerAccess) {
 			return operator.apply(access, targetName, ownerAccess);
 		}
+
+		@Override
+		public void apply(NodeList<Modifier> modifiers) {
+			this.sourceOperator.apply(modifiers);
+		}
 	}
 
 	enum FieldAccess implements Access {
-		DEFAULT((access, name, ownerAccess) -> access),
-		ACCESSIBLE((access, name, ownerAccess) -> makePublic(access)),
+		DEFAULT((access, name, ownerAccess) -> access, a -> {}),
+		ACCESSIBLE((access, name, ownerAccess) -> makePublic(access), AccessWidener::makePublic),
 		MUTABLE((access, name, ownerAccess) -> {
 			if ((ownerAccess & Opcodes.ACC_INTERFACE) != 0 && (access & Opcodes.ACC_STATIC) != 0) {
 				// Don't make static interface fields mutable.
@@ -260,7 +330,7 @@ public final class AccessWidener implements AccessWidenerVisitor {
 			}
 
 			return removeFinal(access);
-		}),
+		}, AccessWidener::removeFinal),
 		ACCESSIBLE_MUTABLE((access, name, ownerAccess) -> {
 			if ((ownerAccess & Opcodes.ACC_INTERFACE) != 0 && (access & Opcodes.ACC_STATIC) != 0) {
 				// Don't make static interface fields mutable.
@@ -268,12 +338,14 @@ public final class AccessWidener implements AccessWidenerVisitor {
 			}
 
 			return makePublic(removeFinal(access));
-		});
+		}, m -> removeFinal(makePublic(m)));
 
 		private final AccessOperator operator;
+		private final SourceOperator sourceOperator;
 
-		FieldAccess(AccessOperator operator) {
+		FieldAccess(AccessOperator operator, SourceOperator sourceOperator) {
 			this.operator = operator;
+			this.sourceOperator = sourceOperator;
 		}
 
 		@Override
@@ -303,10 +375,20 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		public int apply(int access, String targetName, int ownerAccess) {
 			return operator.apply(access, targetName, ownerAccess);
 		}
+
+		@Override
+		public void apply(NodeList<Modifier> modifiers) {
+			sourceOperator.apply(modifiers);
+		}
 	}
 
 	@FunctionalInterface
 	interface AccessOperator {
 		int apply(int access, String targetName, int ownerAccess);
+	}
+
+	@FunctionalInterface
+	interface SourceOperator {
+		void apply(NodeList<Modifier> modifiers);
 	}
 }
