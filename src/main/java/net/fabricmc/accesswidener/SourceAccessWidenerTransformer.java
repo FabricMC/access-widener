@@ -33,13 +33,14 @@ public class SourceAccessWidenerTransformer {
 
 	public boolean transform(CompilationUnit unit) {
 		for(TypeDeclaration<?> type : unit.getTypes()) {
-			String internalName = getFullyQualifiedName(type).map(s -> s.replace('.', '/')).orElse(null);
-			if(internalName == null) {
+			String qualifiedName = getFullyQualifiedName(type).orElse(null);
+			if(qualifiedName == null) {
 				System.err.println("Unable to find internal name of local class in " + unit.getPrimaryType()
 						.flatMap(SourceAccessWidenerTransformer::getFullyQualifiedName) + ".java");
+				return false;
 			}
-
-			if(this.widener.getTargets().contains(internalName)) {
+			if(this.widener.getTargets().contains(qualifiedName)) {
+				String internalName = qualifiedName.replace('.', '/');
 				this.widener.getClassAccess(internalName).apply(type.getModifiers());
 
 				for(MethodDeclaration declaration : type.getMethods()) {

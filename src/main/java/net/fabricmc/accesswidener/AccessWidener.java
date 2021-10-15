@@ -63,31 +63,28 @@ public final class AccessWidener implements AccessWidenerVisitor {
 	@Override
 	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
 		classAccess.put(name, applyAccess(access, classAccess.getOrDefault(name, ClassAccess.DEFAULT), null));
-		addTargets(name, true);
+		addTargets(name);
 	}
 
 	@Override
 	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
 		addOrMerge(methodAccess, EntryTriple.create(owner, name, descriptor, this.requiresSourceCompatibility), access, MethodAccess.DEFAULT);
-		addTargets(owner, false);
+		addTargets(owner);
 	}
 
 	@Override
 	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
 		addOrMerge(fieldAccess, EntryTriple.create(owner, name, descriptor, this.requiresSourceCompatibility), access, FieldAccess.DEFAULT);
-		addTargets(owner, false);
+		addTargets(owner);
 	}
 
-	private void addTargets(String clazz, boolean requiresInnerClassAttributeTransform) {
+	private void addTargets(String clazz) {
 		clazz = clazz.replace('/', '.');
 		classes.add(clazz);
 
-		//Also transform all parent classes
-		if(requiresInnerClassAttributeTransform) {
-			while(clazz.contains("$")) {
-				clazz = clazz.substring(0, clazz.lastIndexOf("$"));
-				classes.add(clazz);
-			}
+		while(clazz.contains("$")) {
+			clazz = clazz.substring(0, clazz.lastIndexOf("$"));
+			classes.add(clazz);
 		}
 
 		if(this.requiresSourceCompatibility) {
