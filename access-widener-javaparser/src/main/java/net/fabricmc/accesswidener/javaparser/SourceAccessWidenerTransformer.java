@@ -102,7 +102,7 @@ public class SourceAccessWidenerTransformer {
 
 	void apply(NodeList<Modifier> modifiers, EntryTriple triple, BiFunction<AccessWidener, EntryTriple, AccessWidener.Access> access, int classFlags, boolean isInterfaceMethod) {
 		int flags = SourceUtil.toFlags(modifiers, isInterfaceMethod);
-		int newFlags = access.apply(this.widener, triple).apply(classFlags, triple.getName(), flags);
+		int newFlags = access.apply(this.widener, triple).apply(flags, triple.getName(), classFlags);
 		SourceUtil.fromFlags(modifiers, newFlags, isInterfaceMethod);
 	}
 

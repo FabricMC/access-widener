@@ -1,20 +1,15 @@
 package net.fabricmc.accesswidener;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Modifier;
-import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ClassLoaderTypeSolver;
@@ -120,8 +115,71 @@ class AccessWidenerSourceTransformerTest {
 			CompilationUnit unit = applyTransformer("test.InterfaceTests");
 			TypeDeclaration<?> testClass = unit.getPrimaryType().orElseThrow();
 
-			assertThat(List.of(Modifier.publicModifier(), Modifier.finalModifier(), Modifier.staticModifier()))
+			assertThat(List.of())
 					.isEqualTo((testClass.getFieldByName("staticFinalIntField").orElseThrow().getModifiers()));
+		}
+	}
+
+	@Nested
+	class Methods {
+		@Test
+		void testMakeAccessible() throws Exception {
+			widener.visitMethod("test/MethodTests", "privateMethod", "()V", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+			CompilationUnit unit = applyTransformer("test.MethodTests");
+			TypeDeclaration<?> testClass = unit.getPrimaryType().orElseThrow();
+
+			assertThat(List.of(Modifier.publicModifier(), Modifier.finalModifier()))
+					.isEqualTo(testClass.getModifiers())
+					.isEqualTo(testClass.getMethodsByName("privateMethod").get(0).getModifiers());
+		}
+
+		@Test
+		void testMakeConstructorAccessible() throws Exception {
+			widener.visitMethod("test/MethodTests", "<init>", "()V", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+			CompilationUnit unit = applyTransformer("test.MethodTests");
+			TypeDeclaration<?> testClass = unit.getPrimaryType().orElseThrow();
+
+			assertThat(List.of(Modifier.publicModifier(), Modifier.finalModifier()))
+					.isEqualTo(testClass.getModifiers());
+			assertThat(List.of(Modifier.publicModifier()))
+					.isEqualTo(testClass.getConstructors().get(0).getModifiers());
+		}
+
+		@Test
+		void testMakeStaticMethodAccessible() throws Exception {
+			widener.visitMethod("test/MethodTests", "staticMethod", "()V", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+			CompilationUnit unit = applyTransformer("test.MethodTests");
+			TypeDeclaration<?> testClass = unit.getPrimaryType().orElseThrow();
+
+			assertThat(List.of(Modifier.publicModifier(), Modifier.finalModifier()))
+					.isEqualTo(testClass.getModifiers());
+			assertThat(List.of(Modifier.publicModifier(), Modifier.staticModifier()))
+					.isEqualTo(testClass.getMethodsByName("staticMethod").get(0).getModifiers());
+		}
+
+		@Test
+		void testMakeExtendable() throws Exception {
+			widener.visitMethod("test/MethodTests", "privateMethod", "()V", AccessWidenerReader.AccessType.EXTENDABLE, false);
+			CompilationUnit unit = applyTransformer("test.MethodTests");
+			TypeDeclaration<?> testClass = unit.getPrimaryType().orElseThrow();
+
+			assertThat(List.of(Modifier.publicModifier()))
+					.isEqualTo(testClass.getModifiers());
+
+			assertThat(List.of(Modifier.protectedModifier()))
+					.isEqualTo(testClass.getMethodsByName("privateMethod").get(0).getModifiers());
+		}
+
+		@Test
+		void testMakeAccessibleAndExtendable() throws Exception {
+			widener.visitMethod("test/MethodTests", "privateMethod", "()V", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+			widener.visitMethod("test/MethodTests", "privateMethod", "()V", AccessWidenerReader.AccessType.EXTENDABLE, false);
+			CompilationUnit unit = applyTransformer("test.MethodTests");
+			TypeDeclaration<?> testClass = unit.getPrimaryType().orElseThrow();
+
+			assertThat(List.of(Modifier.publicModifier()))
+					.isEqualTo(testClass.getModifiers())
+					.isEqualTo(testClass.getMethodsByName("privateMethod").get(0).getModifiers());
 		}
 	}
 }
