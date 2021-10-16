@@ -55,7 +55,7 @@ public final class AccessWidener implements AccessWidenerVisitor {
 	}
 
 	public Set<String> getPackages() {
-		if(this.requiresSourceCompatibility) {
+		if (this.requiresSourceCompatibility) {
 			return Collections.unmodifiableSet(this.javaPackages);
 		} else {
 			throw new UnsupportedOperationException("Cannot get packages when sourceCompatibility is disabled!");
@@ -93,19 +93,20 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		clazz = clazz.replace('/', '.');
 		classes.add(clazz);
 
-		while(clazz.contains("$")) {
+		while (clazz.contains("$")) {
 			clazz = clazz.substring(0, clazz.lastIndexOf("$"));
 			classes.add(clazz);
 		}
 
-		if(this.requiresSourceCompatibility) {
+		if (this.requiresSourceCompatibility) {
 			this.javaPackages.add(getPackage(clazz));
 		}
 	}
 
 	public static String getPackage(String internalName) {
 		int last = internalName.lastIndexOf('/');
-		if(last == -1) {
+
+		if (last == -1) {
 			return "";
 		} else {
 			return internalName.substring(0, last);
@@ -288,7 +289,6 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		public int apply(int access, String targetName, int ownerAccess) {
 			return operator.apply(access, targetName, ownerAccess);
 		}
-
 	}
 
 	enum FieldAccess implements Access {
@@ -344,7 +344,6 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		public int apply(int access, String targetName, int ownerAccess) {
 			return operator.apply(access, targetName, ownerAccess);
 		}
-
 	}
 
 	@FunctionalInterface

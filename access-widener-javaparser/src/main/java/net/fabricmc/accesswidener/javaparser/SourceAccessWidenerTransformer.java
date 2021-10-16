@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2020 FabricMC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package net.fabricmc.accesswidener.javaparser;
 
 import java.util.HashMap;
@@ -5,12 +21,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
-import java.util.function.Supplier;
 
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.NodeList;
-import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
@@ -26,13 +40,14 @@ public class SourceAccessWidenerTransformer {
 
 	public SourceAccessWidenerTransformer(AccessWidener widener) {
 		this.widener = widener;
-		if(!widener.isSourceCompatible()) {
+
+		if (!widener.isSourceCompatible()) {
 			throw new UnsupportedOperationException("AccessWidener must have source compatible entries!");
 		}
 	}
 
 	/**
-	 * A heuristic on whether the java file may be transformed
+	 * A heuristic on whether the java file may be transformed.
 	 */
 	public boolean mayTransform(String javaFilePath) {
 		String pkg = AccessWidener.getPackage(javaFilePath);
@@ -41,14 +56,17 @@ public class SourceAccessWidenerTransformer {
 
 	public boolean transform(CompilationUnit unit) {
 		boolean transformed = false;
-		for(TypeDeclaration<?> type : unit.findAll(TypeDeclaration.class)) {
+
+		for (TypeDeclaration<?> type : unit.findAll(TypeDeclaration.class)) {
 			String qualifiedName = getFullyQualifiedName(type).orElse(null);
-			if(qualifiedName == null) {
+
+			if (qualifiedName == null) {
 				System.err.println("Unable to find internal name of local class in " + unit.getPrimaryType()
 						.flatMap(SourceAccessWidenerTransformer::getFullyQualifiedName) + ".java");
 				return false;
 			}
-			if(this.widener.getTargets().contains(qualifiedName)) {
+
+			if (this.widener.getTargets().contains(qualifiedName)) {
 				boolean isInterface = type.isClassOrInterfaceDeclaration() && type.asClassOrInterfaceDeclaration().isInterface() || type.isAnnotationDeclaration();
 
 				String internalName = qualifiedName.replace('.', '/');
@@ -59,23 +77,25 @@ public class SourceAccessWidenerTransformer {
 
 				// todo add unsealing support when javaparser supports it
 
-				for(MethodDeclaration declaration : type.getMethods()) {
+				for (MethodDeclaration declaration : type.getMethods()) {
 					String desc = declaration.toDescriptor();
 					EntryTriple triple = EntryTriple.create(internalName, declaration.getNameAsString(), desc, true);
 					this.apply(declaration.getModifiers(), triple, AccessWidener::getMethodAccess, classFlags, isInterface);
 				}
 
-				for(ConstructorDeclaration constructor : type.getConstructors()) {
+				for (ConstructorDeclaration constructor : type.getConstructors()) {
 					String desc = toDescriptor(constructor);
 					EntryTriple triple = EntryTriple.create(internalName, "<init>", desc, true);
 					this.apply(constructor.getModifiers(), triple, AccessWidener::getMethodAccess, classFlags, isInterface);
 				}
 
 				List<FieldDeclaration> fields = type.getFields();
-				for(int i = fields.size() - 1; i >= 0; i--) {
+
+				for (int i = fields.size() - 1; i >= 0; i--) {
 					FieldDeclaration field = fields.get(i);
 					Map<AccessWidener.Access, FieldDeclaration> in = new HashMap<>();
-					for(VariableDeclarator variable : field.getVariables()) {
+
+					for (VariableDeclarator variable : field.getVariables()) {
 						String desc = variable.getType().toDescriptor();
 						EntryTriple triple = EntryTriple.create(internalName, variable.getNameAsString(), desc, true);
 						AccessWidener.Access access = this.widener.getFieldAccess(triple);
@@ -85,7 +105,8 @@ public class SourceAccessWidenerTransformer {
 							return declaration;
 						}).getVariables().add(variable);
 					}
-					if(in.size() == 1) {
+
+					if (in.size() == 1) {
 						FieldDeclaration declaration = in.values().iterator().next();
 						field.setModifiers(declaration.getModifiers());
 					} else {
@@ -93,6 +114,7 @@ public class SourceAccessWidenerTransformer {
 						fields.addAll(in.values());
 					}
 				}
+
 				transformed = true;
 			}
 		}
@@ -109,19 +131,23 @@ public class SourceAccessWidenerTransformer {
 	static String toDescriptor(ConstructorDeclaration declaration) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("(");
-		for(int i = 0; i < declaration.getParameters().size(); i++) {
+
+		for (int i = 0; i < declaration.getParameters().size(); i++) {
 			sb.append(declaration.getParameter(i).getType().toDescriptor());
 		}
+
 		sb.append(")V");
 		return sb.toString();
 	}
 
 	static Optional<String> getFullyQualifiedName(TypeDeclaration<?> declaration) {
 		String name = declaration.getNameAsString();
-		if(declaration.isTopLevelType()) {
+
+		if (declaration.isTopLevelType()) {
 			return declaration.findCompilationUnit()
 					.map(cu -> cu.getPackageDeclaration().map(NodeWithName::getNameAsString).map(pkg -> pkg + "." + name).orElse(name));
 		}
+
 		return declaration.findAncestor(TypeDeclaration.class)
 				.map(td -> (TypeDeclaration<?>) td)
 				.flatMap(SourceAccessWidenerTransformer::getFullyQualifiedName)

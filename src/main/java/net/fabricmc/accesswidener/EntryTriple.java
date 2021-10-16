@@ -54,7 +54,7 @@ public class EntryTriple {
 			return false;
 		} else if (o == this) {
 			return true;
-		} else if(o instanceof Fuzzy) {
+		} else if (o instanceof Fuzzy) {
 			return o.equals(this);
 		} else {
 			EntryTriple other = (EntryTriple) o;
@@ -78,16 +78,18 @@ public class EntryTriple {
 		@Override
 		public boolean equals(Object o) {
 			EntryTriple triple;
-			if(o instanceof EntryTriple) {
+
+			if (o instanceof EntryTriple) {
 				triple = (EntryTriple) o;
-				if(!(triple.owner.equals(this.owner) && triple.name.equals(this.name))) {
+
+				if (!(triple.owner.equals(this.owner) && triple.name.equals(this.name))) {
 					return false;
 				}
 			} else {
 				return false;
 			}
 
-			if(o instanceof Fuzzy) {
+			if (o instanceof Fuzzy) {
 				Fuzzy fuzzy = (Fuzzy) o;
 				return fuzzy.replaced.equals(this.replaced);
 			} else {

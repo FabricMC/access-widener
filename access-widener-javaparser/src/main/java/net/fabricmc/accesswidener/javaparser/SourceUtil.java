@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2020 FabricMC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package net.fabricmc.accesswidener.javaparser;
 
 import java.util.Iterator;
@@ -8,15 +24,16 @@ import com.github.javaparser.ast.body.TypeDeclaration;
 import org.objectweb.asm.Opcodes;
 
 class SourceUtil implements Opcodes {
-
 	static void fromFlags(List<Modifier> modifiers, int access, boolean abstract_) {
-		for(int i = 0; i < 32; i++) {
+		for (int i = 0; i < 32; i++) {
 			int flag = 1 << i;
-			switch(flag & access) {
+
+			switch (flag & access) {
 			case ACC_ABSTRACT:
-				if(!abstract_) {
+				if (!abstract_) {
 					modifiers.add(Modifier.abstractModifier());
 				}
+
 				break;
 			case ACC_STATIC:
 				modifiers.add(Modifier.staticModifier());
@@ -39,31 +56,35 @@ class SourceUtil implements Opcodes {
 
 	static int toClassFlags(List<Modifier> modifiers, TypeDeclaration<?> declaration) {
 		int flags = toFlags(modifiers, false);
-		if(declaration.isEnumDeclaration()) {
+
+		if (declaration.isEnumDeclaration()) {
 			flags |= ACC_ENUM;
-		} else if(declaration.isAnnotationDeclaration()) {
+		} else if (declaration.isAnnotationDeclaration()) {
 			flags |= ACC_ANNOTATION;
-		} else if(declaration.isClassOrInterfaceDeclaration() && declaration.asClassOrInterfaceDeclaration().isInterface()) {
+		} else if (declaration.isClassOrInterfaceDeclaration() && declaration.asClassOrInterfaceDeclaration().isInterface()) {
 			flags |= ACC_INTERFACE;
-		} else if(declaration.isRecordDeclaration()) {
+		} else if (declaration.isRecordDeclaration()) {
 			flags |= ACC_RECORD;
 		}
+
 		return flags;
 	}
 
 	/**
-	 * ATM this only implements the flags access widener actually changes, it can be expanded further as needed
+	 * ATM this only implements the flags access widener actually changes, it can be expanded further as needed.
 	 *
 	 * @param abstract_ true if class is interface
 	 */
 	static int toFlags(List<Modifier> modifiers, boolean abstract_) {
 		int flag = 0;
 		Iterator<Modifier> iterator = modifiers.iterator();
-		while(iterator.hasNext()) {
+
+		while (iterator.hasNext()) {
 			Modifier modifier = iterator.next();
 			Modifier.Keyword keyword = modifier.getKeyword();
 			boolean remove = true;
-			switch(keyword) {
+
+			switch (keyword) {
 			case DEFAULT:
 				abstract_ = false;
 				break;
@@ -85,13 +106,16 @@ class SourceUtil implements Opcodes {
 			default:
 				remove = false;
 			}
-			if(remove) {
+
+			if (remove) {
 				iterator.remove();
 			}
 		}
-		if(abstract_) {
+
+		if (abstract_) {
 			flag |= ACC_ABSTRACT;
 		}
+
 		return flag;
 	}
 }
