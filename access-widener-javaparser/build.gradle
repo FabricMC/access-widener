@@ -1,0 +1,4 @@
+dependencies {
+	api rootProject
+	api 'com.github.javaparser:javaparser-symbol-solver-core:3.23.1'
+}
