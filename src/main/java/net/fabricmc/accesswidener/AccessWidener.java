@@ -90,16 +90,16 @@ public final class AccessWidener implements AccessWidenerVisitor {
 	}
 
 	private void addTargets(String clazz) {
+		if (this.requiresSourceCompatibility) {
+			this.javaPackages.add(getPackage(clazz));
+		}
+
 		clazz = clazz.replace('/', '.');
 		classes.add(clazz);
 
 		while (clazz.contains("$")) {
 			clazz = clazz.substring(0, clazz.lastIndexOf("$"));
 			classes.add(clazz);
-		}
-
-		if (this.requiresSourceCompatibility) {
-			this.javaPackages.add(getPackage(clazz));
 		}
 	}
 

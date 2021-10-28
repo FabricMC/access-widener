@@ -31,6 +31,7 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.nodeTypes.NodeWithName;
+import com.github.javaparser.resolution.UnsolvedSymbolException;
 
 import net.fabricmc.accesswidener.AccessWidener;
 import net.fabricmc.accesswidener.EntryTriple;
@@ -67,7 +68,8 @@ public class SourceAccessWidenerTransformer {
 			}
 
 			if (this.widener.getTargets().contains(qualifiedName)) {
-				boolean isInterface = type.isClassOrInterfaceDeclaration() && type.asClassOrInterfaceDeclaration().isInterface() || type.isAnnotationDeclaration();
+				boolean isInterface = type.isClassOrInterfaceDeclaration() && type.asClassOrInterfaceDeclaration()
+						.isInterface() || type.isAnnotationDeclaration();
 
 				String internalName = qualifiedName.replace('.', '/');
 				NodeList<Modifier> classModifiers = type.getModifiers();
@@ -78,15 +80,25 @@ public class SourceAccessWidenerTransformer {
 				// todo add unsealing support when javaparser supports it
 
 				for (MethodDeclaration declaration : type.getMethods()) {
-					String desc = declaration.toDescriptor();
-					EntryTriple triple = EntryTriple.create(internalName, declaration.getNameAsString(), desc, true);
-					this.apply(declaration.getModifiers(), triple, AccessWidener::getMethodAccess, classFlags, isInterface);
+					try {
+						String desc = declaration.toDescriptor();
+						EntryTriple triple = EntryTriple.create(internalName, declaration.getNameAsString(), desc, true);
+						this.apply(declaration.getModifiers(), triple, AccessWidener::getMethodAccess, classFlags, isInterface);
+					} catch (UnsolvedSymbolException ignore) {
+						// unresolved name, just don't apply the AW, maybe a warn?
+						// if we do a warning, ihmo it should check if a simple name matches (or if imports match or if it's qualified then the full name)
+						// it will be an expensive check, however it's an error case so it should be fine
+					}
 				}
 
 				for (ConstructorDeclaration constructor : type.getConstructors()) {
-					String desc = toDescriptor(constructor);
-					EntryTriple triple = EntryTriple.create(internalName, "<init>", desc, true);
-					this.apply(constructor.getModifiers(), triple, AccessWidener::getMethodAccess, classFlags, isInterface);
+					try {
+						String desc = toDescriptor(constructor);
+						EntryTriple triple = EntryTriple.create(internalName, "<init>", desc, true);
+						this.apply(constructor.getModifiers(), triple, AccessWidener::getMethodAccess, classFlags, isInterface);
+					} catch (UnsolvedSymbolException ignore) {
+						// see: comments on the method equivalent code
+					}
 				}
 
 				List<FieldDeclaration> fields = type.getFields();
@@ -96,22 +108,26 @@ public class SourceAccessWidenerTransformer {
 					Map<AccessWidener.Access, FieldDeclaration> in = new HashMap<>();
 
 					for (VariableDeclarator variable : field.getVariables()) {
-						String desc = variable.getType().toDescriptor();
-						EntryTriple triple = EntryTriple.create(internalName, variable.getNameAsString(), desc, true);
-						AccessWidener.Access access = this.widener.getFieldAccess(triple);
-						in.computeIfAbsent(access, $ -> {
-							FieldDeclaration declaration = field.clone();
-							this.apply(declaration.getModifiers(), triple, AccessWidener::getFieldAccess, classFlags, isInterface);
-							return declaration;
-						}).getVariables().add(variable);
+						try {
+							String desc = variable.getType().toDescriptor();
+							EntryTriple triple = EntryTriple.create(internalName, variable.getNameAsString(), desc, true);
+							AccessWidener.Access access = this.widener.getFieldAccess(triple);
+							in.computeIfAbsent(access, $ -> {
+								FieldDeclaration declaration = field.clone();
+								this.apply(declaration.getModifiers(), triple, AccessWidener::getFieldAccess, classFlags, isInterface);
+								return declaration;
+							}).getVariables().add(variable);
+						} catch (UnsolvedSymbolException ignore) {
+							// see: comments on the method equivalent code
+						}
 					}
 
 					if (in.size() == 1) {
 						FieldDeclaration declaration = in.values().iterator().next();
 						field.setModifiers(declaration.getModifiers());
 					} else {
-						field.remove(field);
-						fields.addAll(in.values());
+						type.getMembers().remove(field);
+						type.getMembers().addAll(in.values());
 					}
 				}
 
@@ -120,12 +136,6 @@ public class SourceAccessWidenerTransformer {
 		}
 
 		return transformed;
-	}
-
-	void apply(NodeList<Modifier> modifiers, EntryTriple triple, BiFunction<AccessWidener, EntryTriple, AccessWidener.Access> access, int classFlags, boolean isInterfaceMethod) {
-		int flags = SourceUtil.toFlags(modifiers, isInterfaceMethod);
-		int newFlags = access.apply(this.widener, triple).apply(flags, triple.getName(), classFlags);
-		SourceUtil.fromFlags(modifiers, newFlags, isInterfaceMethod);
 	}
 
 	static String toDescriptor(ConstructorDeclaration declaration) {
@@ -152,5 +162,17 @@ public class SourceAccessWidenerTransformer {
 				.map(td -> (TypeDeclaration<?>) td)
 				.flatMap(SourceAccessWidenerTransformer::getFullyQualifiedName)
 				.map(fqn -> fqn + "$" + name);
+	}
+
+	void apply(
+			NodeList<Modifier> modifiers,
+			EntryTriple triple,
+			BiFunction<AccessWidener, EntryTriple, AccessWidener.Access> access,
+			int classFlags,
+			boolean isInterfaceMethod
+	) {
+		int flags = SourceUtil.toFlags(modifiers, isInterfaceMethod);
+		int newFlags = access.apply(this.widener, triple).apply(flags, triple.getName(), classFlags);
+		SourceUtil.fromFlags(modifiers, newFlags, isInterfaceMethod);
 	}
 }
