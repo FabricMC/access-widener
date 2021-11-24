@@ -1,5 +1,4 @@
 plugins {
-	id "java"
 	id "java-library"
 	id "checkstyle"
 	id "maven-publish"
@@ -8,7 +7,7 @@ plugins {
 }
 
 allprojects {
-	apply plugin: 'java'
+	apply plugin: 'java-library'
 	apply plugin: "checkstyle"
 	apply plugin: "maven-publish"
 	apply plugin: "me.modmuss50.remotesign"
