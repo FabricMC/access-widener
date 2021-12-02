@@ -115,6 +115,17 @@ public class AccessWidenerReaderTest {
 			assertEquals("anyWeirdNamespace", visitor.getNamespace());
 			assertEquals(Collections.emptySet(), visitor.classes);
 		}
+
+		@Test
+		public void readHeader() {
+			AccessWidenerReader.Header header = readHeader("accessWidener v2 named");
+			assertEquals(2, header.getVersion());
+			assertEquals("named", header.getNamespace());
+		}
+
+		private AccessWidenerReader.Header readHeader(String headerLine) {
+			return AccessWidenerReader.readHeader(headerLine.getBytes(StandardCharsets.UTF_8));
+		}
 	}
 
 	@Nested
