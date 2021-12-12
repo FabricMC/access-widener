@@ -18,6 +18,7 @@ package net.fabricmc.accesswidener;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
@@ -36,6 +37,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import test.PrivateInnerClass;
+import test.PrivateInnerRecord;
 
 class AccessWidenerClassVisitorTest {
 	AccessWidener widener = new AccessWidener();
@@ -80,6 +82,21 @@ class AccessWidenerClassVisitorTest {
 		}
 
 		@Test
+		void testMakeInnerRecordAccessible() throws Exception {
+			widener.visitClass("test/PrivateInnerRecord$Inner", AccessWidenerReader.AccessType.ACCESSIBLE, false);
+			Map<String, Class<?>> classes = applyTransformer();
+			assertThat(classes).containsOnlyKeys("test.PrivateInnerRecord$Inner", "test.PrivateInnerRecord");
+
+			Class<?> outerClass = classes.get("test.PrivateInnerRecord");
+			Class<?> innerRecord = classes.get("test.PrivateInnerRecord$Inner");
+			assertThat(outerClass.getClasses()).containsOnly(innerRecord);
+			// For comparison purposes, the untransformed outer class has no public inner-classes
+			assertThat(PrivateInnerRecord.class.getClasses()).isEmpty();
+
+			assertThat(innerRecord).isPublic();
+		}
+
+		@Test
 		void testMakeInnerClassExtendable() throws Exception {
 			widener.visitClass("test/FinalPrivateInnerClass$Inner", AccessWidenerReader.AccessType.EXTENDABLE, false);
 			Map<String, Class<?>> classes = applyTransformer();
@@ -89,6 +106,12 @@ class AccessWidenerClassVisitorTest {
 			Class<?> innerClass = classes.get("test.FinalPrivateInnerClass$Inner");
 			assertThat(outerClass.getClasses()).containsOnly(innerClass);
 			assertThat(innerClass).isPublic().isNotFinal();
+		}
+
+		@Test
+		void testMakeInnerRecordExtendable() throws Exception {
+			widener.visitClass("test/PrivateInnerRecord$Inner", AccessWidenerReader.AccessType.EXTENDABLE, false);
+			assertThrows(UnsupportedOperationException.class, AccessWidenerClassVisitorTest.this::applyTransformer);
 		}
 
 		@Test
@@ -139,6 +162,12 @@ class AccessWidenerClassVisitorTest {
 			Class<?> testClass = applyTransformer("test.InterfaceTests");
 
 			assertEquals("public static final", Modifier.toString(testClass.getDeclaredField("staticFinalIntField").getModifiers()));
+		}
+
+		@Test
+		void testThrowMakingRecordComponentMutable() throws Exception {
+			widener.visitField("test/PrivateInnerRecord$Inner", "i", "I", AccessWidenerReader.AccessType.MUTABLE, false);
+			assertThrows(UnsupportedOperationException.class, () -> applyTransformer("test.PrivateInnerRecord$Inner"));
 		}
 	}
 

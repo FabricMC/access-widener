@@ -207,6 +207,14 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		public int apply(int access, String targetName, int ownerAccess) {
 			return operator.apply(access, targetName, ownerAccess);
 		}
+
+		public static boolean isAccessible(Access access) {
+			return access == ACCESSIBLE || access == ACCESSIBLE_EXTENDABLE;
+		}
+
+		public static boolean isExtendable(Access access) {
+			return access == EXTENDABLE || access == ACCESSIBLE_EXTENDABLE;
+		}
 	}
 
 	enum MethodAccess implements Access {
@@ -247,6 +255,14 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		@Override
 		public int apply(int access, String targetName, int ownerAccess) {
 			return operator.apply(access, targetName, ownerAccess);
+		}
+
+		public static boolean isAccessible(Access access) {
+			return access == ACCESSIBLE || access == ACCESSIBLE_EXTENDABLE;
+		}
+
+		public static boolean isExtendable(Access access) {
+			return access == EXTENDABLE || access == ACCESSIBLE_EXTENDABLE;
 		}
 	}
 
@@ -302,6 +318,14 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		@Override
 		public int apply(int access, String targetName, int ownerAccess) {
 			return operator.apply(access, targetName, ownerAccess);
+		}
+
+		public static boolean isAccessible(Access access) {
+			return access == ACCESSIBLE || access == ACCESSIBLE_MUTABLE;
+		}
+
+		public static boolean isMutable(Access access) {
+			return access == MUTABLE || access == ACCESSIBLE_MUTABLE;
 		}
 	}
 
