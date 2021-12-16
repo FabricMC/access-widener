@@ -6,6 +6,7 @@ plugins {
 	id "org.cadixdev.licenser" version "0.6.1"
 }
 
+logger.lifecycle("Building AccessWidener: " + version)
 allprojects {
 	apply plugin: 'java-library'
 	apply plugin: "checkstyle"
@@ -16,7 +17,7 @@ allprojects {
 	group "net.fabricmc"
 	archivesBaseName = name
 
-	version = "2.0.0"
+	version = "2.1.0"
 	def ENV = System.getenv()
 	repositories {
 		mavenCentral()

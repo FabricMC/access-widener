@@ -49,13 +49,7 @@ public final class AccessWidenerReader {
 	}
 
 	public static int readVersion(byte[] content) {
-		String strContent = new String(content, ENCODING);
-
-		try {
-			return readVersion(new BufferedReader(new StringReader(strContent)));
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
+		return readHeader(content).version;
 	}
 
 	public static int readVersion(BufferedReader reader) throws IOException {
@@ -146,7 +140,17 @@ public final class AccessWidenerReader {
 		}
 	}
 
-	private static Header readHeader(BufferedReader reader) throws IOException {
+	public static Header readHeader(byte[] content) {
+		String strContent = new String(content, ENCODING);
+
+		try {
+			return readHeader(new BufferedReader(new StringReader(strContent)));
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	public static Header readHeader(BufferedReader reader) throws IOException {
 		String headerLine = reader.readLine();
 		String[] header = headerLine.split("\\s+");
 
@@ -288,13 +292,21 @@ public final class AccessWidenerReader {
 		}
 	}
 
-	private static class Header {
+	public static class Header {
 		private final int version;
 		private final String namespace;
 
 		Header(int version, String namespace) {
 			this.version = version;
 			this.namespace = namespace;
+		}
+
+		public int getVersion() {
+			return version;
+		}
+
+		public String getNamespace() {
+			return namespace;
 		}
 	}
 }
