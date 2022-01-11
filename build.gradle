@@ -92,8 +92,8 @@ allprojects {
 				}
 
 				pom {
-					name = 'access-widener'
-					description = 'Access widener provides a way to loosen the access limits of classes in a data drive manner.'
+					name = project.name
+					description = 'Access widener provides a way to loosen the access limits of classes in a data driven manner.'
 					url = 'https://github.com/FabricMC/access-widener'
 
 					scm {
@@ -158,19 +158,17 @@ allprojects {
 		}
 	}
 
-	// A task to ensure that the version being released has not already been released.
-	task checkVersion {
-		doFirst {
-			def xml = new URL("https://maven.fabricmc.net/net/fabricmc/$name/maven-metadata.xml").text
-			def metadata = new XmlSlurper().parseText(xml)
-			def versions = metadata.versioning.versions.version*.text();
-			if (versions.contains(version)) {
-				throw new RuntimeException("${version} has already been released!")
-			}
-		}
+	test {
+		useJUnitPlatform()
 	}
 
-	publish.mustRunAfter checkVersion
+	def junitVersion = "5.7.2"
+	def assertJVersion = "3.20.2"
+	dependencies {
+		testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
+		testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
+		testImplementation("org.assertj:assertj-core:$assertJVersion")
+	}
 }
 
 
@@ -185,19 +183,20 @@ tasks.getByName(project.sourceSets.test.compileJavaTaskName) {
 
 dependencies {
 	def asmVersion = "9.2"
-	def junitVersion = "5.7.2"
-	def assertJVersion = "3.20.2"
-
 	api "org.ow2.asm:asm:$asmVersion"
 	api "org.ow2.asm:asm-commons:$asmVersion" // For Remapper
-	
-	testImplementation project(":access-widener-javaparser")
-
-	testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
-	testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
-	testImplementation("org.assertj:assertj-core:$assertJVersion")
 }
 
-test {
-	useJUnitPlatform()
+// A task to ensure that the version being released has not already been released.
+task checkVersion {
+	doFirst {
+		def xml = new URL("https://maven.fabricmc.net/net/fabricmc/$name/maven-metadata.xml").text
+		def metadata = new XmlSlurper().parseText(xml)
+		def versions = metadata.versioning.versions.version*.text();
+		if (versions.contains(version)) {
+			throw new RuntimeException("${version} has already been released!")
+		}
+	}
 }
+
+publish.mustRunAfter checkVersion

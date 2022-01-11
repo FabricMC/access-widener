@@ -76,7 +76,7 @@ public class SourceAccessWidenerTransformer {
 				return false;
 			}
 
-			if(this.widener.getTargets().contains(qualifiedName)) {
+			if(!this.widener.getTargets().contains(qualifiedName)) {
 				return false;
 			}
 
