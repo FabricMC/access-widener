@@ -144,7 +144,7 @@ public class SourceAccessWidenerTransformer {
 			}
 
 			if(warn != null) {
-				this.warn.println("Unable to apply access wideners to " + qualifiedName + " due to: ");
+				this.warn.println("[AccessWidener] May cause incorrectly applied AWs: Unable to resolve identifiers in " + qualifiedName + " due to: ");
 				warn.printStackTrace(this.warn);
 			}
 
