@@ -78,7 +78,8 @@ public final class AccessWidenerClassVisitor extends ClassVisitor {
 	@Override
 	public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
 		return super.visitField(
-				accessWidener.getFieldAccess(new EntryTriple(className, name, descriptor)).apply(access, name, classAccess),
+				accessWidener.getFieldAccess(EntryTriple.create(className, name, descriptor, this.accessWidener.requiresSourceCompatibility))
+						.apply(access, name, classAccess),
 				name,
 				descriptor,
 				signature,
@@ -89,7 +90,7 @@ public final class AccessWidenerClassVisitor extends ClassVisitor {
 	@Override
 	public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
 		return new AccessWidenerMethodVisitor(super.visitMethod(
-				accessWidener.getMethodAccess(new EntryTriple(className, name, descriptor)).apply(access, name, classAccess),
+				accessWidener.getMethodAccess(EntryTriple.create(className, name, descriptor, this.accessWidener.requiresSourceCompatibility)).apply(access, name, classAccess),
 				name,
 				descriptor,
 				signature,
@@ -127,7 +128,10 @@ public final class AccessWidenerClassVisitor extends ClassVisitor {
 		}
 
 		private boolean isTargetMethod(String owner, String name, String descriptor) {
-			return owner.equals(className) && !name.equals("<init>") && accessWidener.getMethodAccess(new EntryTriple(owner, name, descriptor)) != AccessWidener.MethodAccess.DEFAULT;
+			return owner.equals(className) && !name.equals("<init>") &&
+			       accessWidener.getMethodAccess(
+						   EntryTriple.create(owner, name, descriptor, AccessWidenerClassVisitor.this.accessWidener.requiresSourceCompatibility)
+			       ) != AccessWidener.MethodAccess.DEFAULT;
 		}
 	}
 }

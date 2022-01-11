@@ -24,13 +24,17 @@ import com.github.javaparser.ast.body.TypeDeclaration;
 import org.objectweb.asm.Opcodes;
 
 class SourceUtil implements Opcodes {
-	static void fromFlags(List<Modifier> modifiers, int access, boolean abstract_) {
+	static void fromFlags(List<Modifier> modifiers, int access, boolean isAbstractByDefaultInSource) {
+		if(isAbstractByDefaultInSource && !java.lang.reflect.Modifier.isAbstract(access)) {
+			modifiers.add(new Modifier(Modifier.Keyword.DEFAULT));
+		}
+
 		for (int i = 0; i < 32; i++) {
 			int flag = 1 << i;
 
 			switch (flag & access) {
 			case ACC_ABSTRACT:
-				if (!abstract_) {
+				if (!isAbstractByDefaultInSource) {
 					modifiers.add(Modifier.abstractModifier());
 				}
 
@@ -73,9 +77,9 @@ class SourceUtil implements Opcodes {
 	/**
 	 * ATM this only implements the flags access widener actually changes, it can be expanded further as needed.
 	 *
-	 * @param abstract_ true if class is interface
+	 * @param isAbstractByDefaultInSource true if class is interface
 	 */
-	static int toFlags(List<Modifier> modifiers, boolean abstract_) {
+	static int toFlags(List<Modifier> modifiers, boolean isAbstractByDefaultInSource) {
 		int flag = 0;
 		Iterator<Modifier> iterator = modifiers.iterator();
 
@@ -86,7 +90,7 @@ class SourceUtil implements Opcodes {
 
 			switch (keyword) {
 			case DEFAULT:
-				abstract_ = false;
+				isAbstractByDefaultInSource = false;
 				break;
 			case FINAL:
 				flag |= ACC_FINAL;
@@ -112,7 +116,7 @@ class SourceUtil implements Opcodes {
 			}
 		}
 
-		if (abstract_) {
+		if (isAbstractByDefaultInSource) {
 			flag |= ACC_ABSTRACT;
 		}
 
