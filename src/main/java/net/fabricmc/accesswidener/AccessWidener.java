@@ -16,7 +16,9 @@
 
 package net.fabricmc.accesswidener;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -33,6 +35,32 @@ public final class AccessWidener implements AccessWidenerVisitor {
 	// Contains the class-names that are affected by loaded wideners.
 	// Names are period-separated binary names (i.e. a.b.C).
 	final Set<String> classes = new LinkedHashSet<>();
+	/**
+	 * Packages are used here rather than class files as A.java can define B.class (eg. {@code class A {} class B{}})
+	 */
+	final Set<String> javaPackages;
+	final boolean requiresSourceCompatibility;
+
+	public AccessWidener() {
+		this(false);
+	}
+
+	public AccessWidener(boolean requiresSourceCompatibility) {
+		this.requiresSourceCompatibility = requiresSourceCompatibility;
+		this.javaPackages = requiresSourceCompatibility ? new HashSet<>() : null;
+	}
+
+	public boolean isSourceCompatible() {
+		return this.requiresSourceCompatibility;
+	}
+
+	public Set<String> getPackages() {
+		if (this.requiresSourceCompatibility) {
+			return Collections.unmodifiableSet(this.javaPackages);
+		} else {
+			throw new UnsupportedOperationException("Cannot get packages when sourceCompatibility is disabled!");
+		}
+	}
 
 	@Override
 	public void visitHeader(String namespace) {
@@ -51,24 +79,37 @@ public final class AccessWidener implements AccessWidenerVisitor {
 
 	@Override
 	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
-		addOrMerge(methodAccess, new EntryTriple(owner, name, descriptor), access, MethodAccess.DEFAULT);
+		addOrMerge(methodAccess, EntryTriple.create(owner, name, descriptor, this.requiresSourceCompatibility), access, MethodAccess.DEFAULT);
 		addTargets(owner);
 	}
 
 	@Override
 	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
-		addOrMerge(fieldAccess, new EntryTriple(owner, name, descriptor), access, FieldAccess.DEFAULT);
+		addOrMerge(fieldAccess, EntryTriple.create(owner, name, descriptor, this.requiresSourceCompatibility), access, FieldAccess.DEFAULT);
 		addTargets(owner);
 	}
 
 	private void addTargets(String clazz) {
+		if (this.requiresSourceCompatibility) {
+			this.javaPackages.add(getPackage(clazz));
+		}
+
 		clazz = clazz.replace('/', '.');
 		classes.add(clazz);
 
-		//Also transform all parent classes
 		while (clazz.contains("$")) {
 			clazz = clazz.substring(0, clazz.lastIndexOf("$"));
 			classes.add(clazz);
+		}
+	}
+
+	public static String getPackage(String internalName) {
+		int last = internalName.lastIndexOf('/');
+
+		if (last == -1) {
+			return "";
+		} else {
+			return internalName.substring(0, last);
 		}
 	}
 
@@ -105,15 +146,15 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		classAccess.put(entryTriple.getOwner(), applyAccess(AccessWidenerReader.AccessType.EXTENDABLE, classAccess.getOrDefault(entryTriple.getOwner(), ClassAccess.DEFAULT), null));
 	}
 
-	Access getClassAccess(String className) {
+	public Access getClassAccess(String className) {
 		return classAccess.getOrDefault(className, ClassAccess.DEFAULT);
 	}
 
-	Access getFieldAccess(EntryTriple entryTriple) {
+	public Access getFieldAccess(EntryTriple entryTriple) {
 		return fieldAccess.getOrDefault(entryTriple, FieldAccess.DEFAULT);
 	}
 
-	Access getMethodAccess(EntryTriple entryTriple) {
+	public Access getMethodAccess(EntryTriple entryTriple) {
 		return methodAccess.getOrDefault(entryTriple, MethodAccess.DEFAULT);
 	}
 
@@ -160,7 +201,7 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		return i & ~Opcodes.ACC_FINAL;
 	}
 
-	interface Access extends AccessOperator {
+	public interface Access extends AccessOperator {
 		Access makeAccessible();
 
 		Access makeExtendable();

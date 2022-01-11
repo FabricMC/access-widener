@@ -272,7 +272,7 @@ public class AccessWidenerReaderTest {
 			}
 
 			assertThat(visitor.fieldAccess).containsOnly(
-					entry(new EntryTriple("some/test/Class", "someField", "I"), expectedFieldAccess)
+					entry(EntryTriple.create("some/test/Class", "someField", "I", false), expectedFieldAccess)
 			);
 			assertThat(visitor.methodAccess).isEmpty();
 		}
@@ -367,7 +367,7 @@ public class AccessWidenerReaderTest {
 			}
 
 			assertThat(visitor.methodAccess).containsOnly(
-					entry(new EntryTriple("some/test/Class", "someMethod", "()V"), expectedMethodAccess)
+					entry(EntryTriple.create("some/test/Class", "someMethod", "()V", false), expectedMethodAccess)
 			);
 			assertThat(visitor.fieldAccess).isEmpty();
 		}
@@ -504,13 +504,13 @@ public class AccessWidenerReaderTest {
 					entry(prefix + "/AccessibleExtendableClass", AccessWidener.ClassAccess.ACCESSIBLE_EXTENDABLE)
 			);
 			assertThat(visitor.methodAccess).contains(
-					entry(new EntryTriple(prefix + "/AccessibleClass", "method", "()V"), AccessWidener.MethodAccess.ACCESSIBLE),
-					entry(new EntryTriple(prefix + "/ExtendableClass", "method", "()V"), AccessWidener.MethodAccess.EXTENDABLE),
-					entry(new EntryTriple(prefix + "/AccessibleExtendableClass", "method", "()V"), AccessWidener.MethodAccess.ACCESSIBLE_EXTENDABLE)
+					entry(EntryTriple.create(prefix + "/AccessibleClass", "method", "()V", false), AccessWidener.MethodAccess.ACCESSIBLE),
+					entry(EntryTriple.create(prefix + "/ExtendableClass", "method", "()V", false), AccessWidener.MethodAccess.EXTENDABLE),
+					entry(EntryTriple.create(prefix + "/AccessibleExtendableClass", "method", "()V", false), AccessWidener.MethodAccess.ACCESSIBLE_EXTENDABLE)
 			);
 			assertThat(visitor.fieldAccess).contains(
-					entry(new EntryTriple(prefix + "/AccessibleClass", "finalField", "I"), AccessWidener.FieldAccess.MUTABLE),
-					entry(new EntryTriple(prefix + "/AccessibleClass", "field", "I"), AccessWidener.FieldAccess.ACCESSIBLE)
+					entry(EntryTriple.create(prefix + "/AccessibleClass", "finalField", "I", false), AccessWidener.FieldAccess.MUTABLE),
+					entry(EntryTriple.create(prefix + "/AccessibleClass", "field", "I", false), AccessWidener.FieldAccess.ACCESSIBLE)
 			);
 		}
 	}

@@ -1,5 +1,4 @@
 plugins {
-	id "java"
 	id "java-library"
 	id "checkstyle"
 	id "maven-publish"
@@ -7,32 +6,173 @@ plugins {
 	id "org.cadixdev.licenser" version "0.6.1"
 }
 
-group "net.fabricmc"
-archivesBaseName = "access-widener"
+allprojects {
+	apply plugin: 'java-library'
+	apply plugin: "checkstyle"
+	apply plugin: "maven-publish"
+	apply plugin: "me.modmuss50.remotesign"
+	apply plugin: "org.cadixdev.licenser"
+	
+	group "net.fabricmc"
+	archivesBaseName = name
 
-def ENV = System.getenv()
-version = "2.1.0"
-logger.lifecycle("Building AccessWidener: " + version)
+	version = "2.2.0"
+	def ENV = System.getenv()
+	repositories {
+		mavenCentral()
+		maven {
+			name = "Fabric"
+			url = "https://maven.fabricmc.net/"
+		}
+	}
 
-repositories {
-	mavenCentral()
+	tasks.withType(JavaCompile).configureEach {
+		it.options.encoding = "UTF-8"
+	}
 
-	maven {
-		name = "Fabric"
-		url = "https://maven.fabricmc.net/"
+	// Main source set builds against java 8
+	tasks.getByName(project.sourceSets.main.compileJavaTaskName) {
+		options.release = 8
+		sourceCompatibility = 1.8
+		targetCompatibility = 1.8
+	}
+
+	license {
+		header rootProject.file("HEADER")
+		include "**/*.java"
+	}
+
+	checkstyle {
+		configFile = rootProject.file("checkstyle.xml")
+		toolVersion = "8.43"
+	}
+
+	java {
+		withSourcesJar()
+	}
+
+	task javadocJar(type: Jar, dependsOn: javadoc) {
+		archiveClassifier = 'javadoc'
+		from javadoc.destinationDir
+	}
+
+	if (ENV.SIGNING_SERVER) {
+		remoteSign {
+			requestUrl ENV.SIGNING_SERVER
+			pgpAuthKey ENV.SIGNING_PGP_KEY
+			jarAuthKey ENV.SIGNING_JAR_KEY
+
+			sign (jar, javadocJar, sourcesJar)
+
+			afterEvaluate {
+				sign publishing.publications.mavenJava
+			}
+		}
+	}
+
+	publishing {
+		publications {
+			mavenJava(MavenPublication) {
+				if (ENV.SIGNING_SERVER) {
+					artifact(signJar) {
+						classifier null
+					}
+
+					artifact(signJavadocJar) {
+						classifier "javadoc"
+					}
+
+					artifact(signSourcesJar) {
+						classifier "sources"
+					}
+				} else {
+					from components.java
+
+					artifact(javadocJar)
+				}
+
+				pom {
+					name = project.name
+					description = 'Access widener provides a way to loosen the access limits of classes in a data driven manner.'
+					url = 'https://github.com/FabricMC/access-widener'
+
+					scm {
+						connection = "scm:git:https://github.com/FabricMC/access-widener.git"
+						developerConnection = "scm:git:git@github.com:FabricMC/access-widener.git"
+						url = "https://github.com/FabricMC/access-widener"
+					}
+
+					issueManagement {
+						system = "GitHub"
+						url = "https://github.com/FabricMC/access-widener/issues"
+					}
+
+					licenses {
+						license {
+							name = 'The Apache License, Version 2.0'
+							url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+						}
+					}
+
+					developers {
+						developer {
+							id = "modmuss50"
+							name = "modmuss50"
+							email = "modmuss50@fabricmc.net"
+						}
+
+						developer {
+							id = "sfPlayer"
+							name = "Player"
+							email = "player@fabricmc.net"
+						}
+					}
+				}
+			}
+		}
+
+		repositories {
+			mavenLocal()
+
+			if (ENV.MAVEN_URL) {
+				repositories.maven {
+					name "fabric"
+					url ENV.MAVEN_URL
+					credentials {
+						username ENV.MAVEN_USERNAME
+						password ENV.MAVEN_PASSWORD
+					}
+				}
+			}
+
+			if (ENV.MAVEN_CENTRAL_URL) {
+				repositories.maven {
+					name "central"
+					url ENV.MAVEN_CENTRAL_URL
+					credentials {
+						username ENV.MAVEN_CENTRAL_USERNAME
+						password ENV.MAVEN_CENTRAL_PASSWORD
+					}
+				}
+			}
+		}
+	}
+
+	test {
+		useJUnitPlatform()
+	}
+
+	def junitVersion = "5.7.2"
+	def assertJVersion = "3.20.2"
+	dependencies {
+		testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
+		testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
+		testImplementation("org.assertj:assertj-core:$assertJVersion")
 	}
 }
 
-tasks.withType(JavaCompile).configureEach {
-	it.options.encoding = "UTF-8"
-}
 
-// Main source set builds against java 8
-tasks.getByName(project.sourceSets.main.compileJavaTaskName) {
-	options.release = 8
-	sourceCompatibility = 1.8
-	targetCompatibility = 1.8
-}
+logger.lifecycle("Building AccessWidener: " + version)
 
 // Test source set builds against java 17
 tasks.getByName(project.sourceSets.test.compileJavaTaskName) {
@@ -43,146 +183,14 @@ tasks.getByName(project.sourceSets.test.compileJavaTaskName) {
 
 dependencies {
 	def asmVersion = "9.2"
-	def junitVersion = "5.7.2"
-	def assertJVersion = "3.20.2"
-
 	api "org.ow2.asm:asm:$asmVersion"
 	api "org.ow2.asm:asm-commons:$asmVersion" // For Remapper
-
-	testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
-	testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
-	testImplementation("org.assertj:assertj-core:$assertJVersion")
-}
-
-license {
-	header project.file("HEADER")
-	include "**/*.java"
-}
-
-checkstyle {
-	configFile = project.file("checkstyle.xml")
-	toolVersion = "8.43"
-}
-
-java {
-	withSourcesJar()
-}
-
-test {
-	useJUnitPlatform()
-}
-
-task javadocJar(type: Jar, dependsOn: javadoc) {
-	archiveClassifier = 'javadoc'
-	from javadoc.destinationDir
-}
-
-if (ENV.SIGNING_SERVER) {
-	remoteSign {
-		requestUrl ENV.SIGNING_SERVER
-		pgpAuthKey ENV.SIGNING_PGP_KEY
-		jarAuthKey ENV.SIGNING_JAR_KEY
-
-		sign (jar, javadocJar, sourcesJar)
-
-		afterEvaluate {
-			sign publishing.publications.mavenJava
-		}
-	}
-}
-
-publishing {
-	publications {
-		mavenJava(MavenPublication) {
-			if (ENV.SIGNING_SERVER) {
-				artifact(signJar) {
-					classifier null
-				}
-
-				artifact(signJavadocJar) {
-					classifier "javadoc"
-				}
-
-				artifact(signSourcesJar) {
-					classifier "sources"
-				}
-			} else {
-				from components.java
-
-				artifact(javadocJar)
-			}
-
-			pom {
-				name = 'access-widener'
-				description = 'Access widener provides a way to loosen the access limits of classes in a data drive manner.'
-				url = 'https://github.com/FabricMC/access-widener'
-
-				scm {
-					connection = "scm:git:https://github.com/FabricMC/access-widener.git"
-					developerConnection = "scm:git:git@github.com:FabricMC/access-widener.git"
-					url = "https://github.com/FabricMC/access-widener"
-				}
-
-				issueManagement {
-					system = "GitHub"
-					url = "https://github.com/FabricMC/access-widener/issues"
-				}
-
-				licenses {
-					license {
-						name = 'The Apache License, Version 2.0'
-						url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-					}
-				}
-
-				developers {
-					developer {
-						id = "modmuss50"
-						name = "modmuss50"
-						email = "modmuss50@fabricmc.net"
-					}
-
-					developer {
-						id = "sfPlayer"
-						name = "Player"
-						email = "player@fabricmc.net"
-					}
-				}
-			}
-		}
-	}
-
-	repositories {
-		mavenLocal()
-
-		if (ENV.MAVEN_URL) {
-			repositories.maven {
-				name "fabric"
-				url ENV.MAVEN_URL
-				credentials {
-					username ENV.MAVEN_USERNAME
-					password ENV.MAVEN_PASSWORD
-				}
-			}
-		}
-
-		if (ENV.MAVEN_CENTRAL_URL) {
-			repositories.maven {
-				name "central"
-				url ENV.MAVEN_CENTRAL_URL
-				credentials {
-					username ENV.MAVEN_CENTRAL_USERNAME
-					password ENV.MAVEN_CENTRAL_PASSWORD
-				}
-			}
-		}
-	}
 }
 
 // A task to ensure that the version being released has not already been released.
 task checkVersion {
 	doFirst {
-		def xml = new URL("https://maven.fabricmc.net/net/fabricmc/access-widener/maven-metadata.xml").text
+		def xml = new URL("https://maven.fabricmc.net/net/fabricmc/$name/maven-metadata.xml").text
 		def metadata = new XmlSlurper().parseText(xml)
 		def versions = metadata.versioning.versions.version*.text();
 		if (versions.contains(version)) {

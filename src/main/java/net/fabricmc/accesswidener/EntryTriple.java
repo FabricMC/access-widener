@@ -16,15 +16,23 @@
 
 package net.fabricmc.accesswidener;
 
-final class EntryTriple {
-	private final String owner;
-	private final String name;
-	private final String desc;
+public final class EntryTriple {
+	final String owner;
+	final String name;
+	final String desc;
+	final String fuzzy;
+	final boolean requiresSourceCompatibility;
 
-	EntryTriple(String owner, String name, String desc) {
+	public static EntryTriple create(String owner, String name, String desc, boolean requiresSourceCompatibility) {
+		return new EntryTriple(owner, name, desc, requiresSourceCompatibility);
+	}
+
+	private EntryTriple(String owner, String name, String desc, boolean requiresSourceCompatibility) {
 		this.owner = owner;
 		this.name = name;
 		this.desc = desc;
+		this.fuzzy = requiresSourceCompatibility ? desc.replace('.', '/') : null;
+		this.requiresSourceCompatibility = requiresSourceCompatibility;
 	}
 
 	public String getOwner() {
@@ -39,10 +47,12 @@ final class EntryTriple {
 		return this.desc;
 	}
 
+	@Override
 	public String toString() {
 		return "EntryTriple{owner=" + this.owner + ",name=" + this.name + ",desc=" + this.desc + "}";
 	}
 
+	@Override
 	public boolean equals(Object o) {
 		if (!(o instanceof EntryTriple)) {
 			return false;
@@ -50,11 +60,15 @@ final class EntryTriple {
 			return true;
 		} else {
 			EntryTriple other = (EntryTriple) o;
-			return other.owner.equals(this.owner) && other.name.equals(this.name) && other.desc.equals(this.desc);
+			if(other.owner.equals(this.owner) && other.name.equals(this.name)) {
+				return this.requiresSourceCompatibility ? other.fuzzy.equals(this.fuzzy) : other.desc.equals(this.desc);
+			}
+			return false;
 		}
 	}
 
+	@Override
 	public int hashCode() {
-		return this.owner.hashCode() * 37 + this.name.hashCode() * 19 + this.desc.hashCode();
+		return this.owner.hashCode() * 37 + this.name.hashCode() * 19 + (requiresSourceCompatibility ? this.fuzzy : this.desc).hashCode();
 	}
 }

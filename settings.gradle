@@ -10,3 +10,5 @@ pluginManagement {
 }
 
 rootProject.name = 'access-widener'
+include 'access-widener-javaparser'
+

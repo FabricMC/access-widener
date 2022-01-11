@@ -19,3 +19,6 @@
 !/LICENSE
 !/README.md
 !/settings.gradle
+
+!/access-widener-javaparser/src
+!/access-widener-javaparser/build.gradle
