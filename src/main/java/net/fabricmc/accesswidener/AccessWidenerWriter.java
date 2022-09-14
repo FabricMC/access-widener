@@ -16,6 +16,8 @@
 
 package net.fabricmc.accesswidener;
 
+import java.util.Set;
+
 public final class AccessWidenerWriter implements AccessWidenerVisitor {
 	private final StringBuilder builder = new StringBuilder();
 	private final int version;
@@ -53,20 +55,20 @@ public final class AccessWidenerWriter implements AccessWidenerVisitor {
 	}
 
 	@Override
-	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitClass(String name, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		writeAccess(access, transitive);
 		builder.append("\tclass\t").append(name).append('\n');
 	}
 
 	@Override
-	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitMethod(String owner, String name, String descriptor, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		writeAccess(access, transitive);
 		builder.append("\tmethod\t").append(owner).append('\t').append(name)
 				.append('\t').append(descriptor).append('\n');
 	}
 
 	@Override
-	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitField(String owner, String name, String descriptor, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		writeAccess(access, transitive);
 		builder.append("\tfield\t").append(owner).append('\t').append(name)
 				.append('\t').append(descriptor).append('\n');
@@ -84,7 +86,7 @@ public final class AccessWidenerWriter implements AccessWidenerVisitor {
 		return builder.toString();
 	}
 
-	private void writeAccess(AccessWidenerReader.AccessType access, boolean transitive) {
+	private void writeAccess(Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		if (transitive) {
 			if (version < 2) {
 				throw new IllegalStateException("Cannot write transitive rule in version " + version);

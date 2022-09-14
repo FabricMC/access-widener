@@ -21,9 +21,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public final class AccessWidenerReader {
@@ -35,6 +33,8 @@ public final class AccessWidenerReader {
 	private static final Pattern V2_DELIMITER = Pattern.compile("[ \\t]+");
 	// Prefix used on access types to denote the entry should be inherited by mods depending on this mod
 	private static final String TRANSITIVE_PREFIX = "transitive-";
+	// Separator used when multiple access type changes need to be made on a single entry (regex)
+	private static final String ACCESS_TYPE_SEPARATOR = "\\|";
 
 	// Access widener format versions
 	private static final int V1 = 1;
@@ -118,7 +118,7 @@ public final class AccessWidenerReader {
 				}
 			}
 
-			AccessType access = readAccessType(accessType);
+			Set<AccessType> access = readAccessTypes(accessType);
 
 			if (tokens.size() < 2) {
 				throw error("Expected <class|field|method> following " + tokens.get(0));
@@ -179,7 +179,7 @@ public final class AccessWidenerReader {
 		return new Header(version, header[2]);
 	}
 
-	private void handleClass(String line, List<String> tokens, boolean transitive, AccessType access) {
+	private void handleClass(String line, List<String> tokens, boolean transitive, Set<AccessType> access) {
 		if (tokens.size() != 3) {
 			throw error("Expected (<access> class <className>) got (%s)", line);
 		}
@@ -194,7 +194,7 @@ public final class AccessWidenerReader {
 		}
 	}
 
-	private void handleField(String line, List<String> tokens, boolean transitive, AccessType access) {
+	private void handleField(String line, List<String> tokens, boolean transitive, Set<AccessType> access) {
 		if (tokens.size() != 5) {
 			throw error("Expected (<access> field <className> <fieldName> <fieldDesc>) got (%s)", line);
 		}
@@ -212,7 +212,7 @@ public final class AccessWidenerReader {
 		}
 	}
 
-	private void handleMethod(String line, List<String> tokens, boolean transitive, AccessType access) {
+	private void handleMethod(String line, List<String> tokens, boolean transitive, Set<AccessType> access) {
 		if (tokens.size() != 5) {
 			throw error("Expected (<access> method <className> <methodName> <methodDesc>) got (%s)", line);
 		}
@@ -247,17 +247,35 @@ public final class AccessWidenerReader {
 		return line;
 	}
 
-	private AccessType readAccessType(String access) {
-		switch (access.toLowerCase(Locale.ROOT)) {
-		case "accessible":
-			return AccessType.ACCESSIBLE;
-		case "extendable":
-			return AccessType.EXTENDABLE;
-		case "mutable":
-			return AccessType.MUTABLE;
-		default:
-			throw error("Unknown access type: " + access);
+	private Set<AccessType> readAccessTypes(String access) {
+		String[] split = access.toLowerCase(Locale.ROOT).split(ACCESS_TYPE_SEPARATOR);
+		Set<AccessType> accessTypes = new HashSet<>();
+		
+		for (String datum : split) {
+			AccessType type;
+			switch (datum) {
+				case "accessible":
+					type = AccessType.ACCESSIBLE;
+					break;
+					
+				case "extendable":
+					type = AccessType.EXTENDABLE;
+					break;
+					
+				case "mutable":
+					type = AccessType.MUTABLE;
+					break;
+					
+				default:
+					throw error("Unknown access type: " + access);
+			}
+			
+			if (!accessTypes.add(type)) {
+				throw error("Duplicated access type: " + access);
+			}
 		}
+		
+		return Collections.unmodifiableSet(accessTypes);
 	}
 
 	public enum AccessType {

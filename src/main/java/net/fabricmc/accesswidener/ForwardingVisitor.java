@@ -16,6 +16,8 @@
 
 package net.fabricmc.accesswidener;
 
+import java.util.Set;
+
 /**
  * Forwards visitor events to multiple other visitors.
  */
@@ -34,21 +36,21 @@ public class ForwardingVisitor implements AccessWidenerVisitor {
 	}
 
 	@Override
-	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitClass(String name, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		for (AccessWidenerVisitor visitor : visitors) {
 			visitor.visitClass(name, access, transitive);
 		}
 	}
 
 	@Override
-	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitMethod(String owner, String name, String descriptor, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		for (AccessWidenerVisitor visitor : visitors) {
 			visitor.visitMethod(owner, name, descriptor, access, transitive);
 		}
 	}
 
 	@Override
-	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitField(String owner, String name, String descriptor, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		for (AccessWidenerVisitor visitor : visitors) {
 			visitor.visitField(owner, name, descriptor, access, transitive);
 		}

@@ -16,6 +16,8 @@
 
 package net.fabricmc.accesswidener;
 
+import java.util.Set;
+
 /**
  * Decorates a visitor to only receive elements that are marked as transitive.
  */
@@ -32,21 +34,21 @@ public final class TransitiveOnlyFilter implements AccessWidenerVisitor {
 	}
 
 	@Override
-	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitClass(String name, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		if (transitive) {
 			delegate.visitClass(name, access, transitive);
 		}
 	}
 
 	@Override
-	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitMethod(String owner, String name, String descriptor, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		if (transitive) {
 			delegate.visitMethod(owner, name, descriptor, access, transitive);
 		}
 	}
 
 	@Override
-	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitField(String owner, String name, String descriptor, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		if (transitive) {
 			delegate.visitField(owner, name, descriptor, access, transitive);
 		}

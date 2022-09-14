@@ -16,10 +16,7 @@
 
 package net.fabricmc.accesswidener;
 
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import org.objectweb.asm.Opcodes;
 
@@ -44,19 +41,19 @@ public final class AccessWidener implements AccessWidenerVisitor {
 	}
 
 	@Override
-	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitClass(String name, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		classAccess.put(name, applyAccess(access, classAccess.getOrDefault(name, ClassAccess.DEFAULT), null));
 		addTargets(name);
 	}
 
 	@Override
-	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitMethod(String owner, String name, String descriptor, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		addOrMerge(methodAccess, new EntryTriple(owner, name, descriptor), access, MethodAccess.DEFAULT);
 		addTargets(owner);
 	}
 
 	@Override
-	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitField(String owner, String name, String descriptor, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		addOrMerge(fieldAccess, new EntryTriple(owner, name, descriptor), access, FieldAccess.DEFAULT);
 		addTargets(owner);
 	}
@@ -72,7 +69,7 @@ public final class AccessWidener implements AccessWidenerVisitor {
 		}
 	}
 
-	void addOrMerge(Map<EntryTriple, Access> map, EntryTriple entry, AccessWidenerReader.AccessType access, Access defaultAccess) {
+	void addOrMerge(Map<EntryTriple, Access> map, EntryTriple entry, Set<AccessWidenerReader.AccessType> access, Access defaultAccess) {
 		if (entry == null || access == null) {
 			throw new RuntimeException("Input entry or access is null");
 		}
@@ -81,18 +78,28 @@ public final class AccessWidener implements AccessWidenerVisitor {
 	}
 
 	Access applyAccess(AccessWidenerReader.AccessType input, Access access, EntryTriple entryTriple) {
-		switch (input) {
-		case ACCESSIBLE:
-			makeClassAccessible(entryTriple);
-			return access.makeAccessible();
-		case EXTENDABLE:
-			makeClassExtendable(entryTriple);
-			return access.makeExtendable();
-		case MUTABLE:
-			return access.makeMutable();
-		default:
-			throw new UnsupportedOperationException("Unknown access type:" + input);
+		return applyAccess(Collections.singleton(input), access, entryTriple);
+	}
+	
+	Access applyAccess(Set<AccessWidenerReader.AccessType> input, Access access, EntryTriple entryTriple) {
+		for (AccessWidenerReader.AccessType type : input) {
+			switch (type) {
+				case ACCESSIBLE:
+					makeClassAccessible(entryTriple);
+					access = access.makeAccessible();
+					break;
+				case EXTENDABLE:
+					makeClassExtendable(entryTriple);
+					access = access.makeExtendable();
+					break;
+				case MUTABLE:
+					access = access.makeMutable();
+					break;
+				default:
+					throw new UnsupportedOperationException("Unknown access type:" + input);
+			}
 		}
+		return access;
 	}
 
 	private void makeClassAccessible(EntryTriple entryTriple) {

@@ -18,6 +18,8 @@ package net.fabricmc.accesswidener;
 
 import org.objectweb.asm.commons.Remapper;
 
+import java.util.Set;
+
 /**
  * Decorates a {@link AccessWidenerVisitor} with a {@link Remapper}
  * to remap names passing through the visitor if they come from a different namespace.
@@ -58,12 +60,12 @@ public final class AccessWidenerRemapper implements AccessWidenerVisitor {
 	}
 
 	@Override
-	public void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitClass(String name, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		delegate.visitClass(remapper.map(name), access, transitive);
 	}
 
 	@Override
-	public void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitMethod(String owner, String name, String descriptor, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		delegate.visitMethod(
 				remapper.map(owner),
 				remapper.mapMethodName(owner, name, descriptor),
@@ -74,7 +76,7 @@ public final class AccessWidenerRemapper implements AccessWidenerVisitor {
 	}
 
 	@Override
-	public void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+	public void visitField(String owner, String name, String descriptor, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
 		delegate.visitField(
 				remapper.map(owner),
 				remapper.mapFieldName(owner, name, descriptor),

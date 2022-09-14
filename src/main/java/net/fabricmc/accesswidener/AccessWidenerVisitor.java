@@ -16,6 +16,9 @@
 
 package net.fabricmc.accesswidener;
 
+import java.util.Collections;
+import java.util.Set;
+
 /**
  * A visitor of the entries defined in an access widener file.
  */
@@ -35,7 +38,18 @@ public interface AccessWidenerVisitor {
 	 * @param access     the access type ({@link AccessWidenerReader.AccessType#ACCESSIBLE} or {@link AccessWidenerReader.AccessType#EXTENDABLE})
 	 * @param transitive whether this widener should be applied across mod boundaries
 	 */
+	default void visitClass(String name, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
+	}
+	
+	/**
+	 * Visits a widened class.
+	 *
+	 * @param name       the name of the class
+	 * @param access     the access type ({@link AccessWidenerReader.AccessType#ACCESSIBLE} or {@link AccessWidenerReader.AccessType#EXTENDABLE})
+	 * @param transitive whether this widener should be applied across mod boundaries
+	 */
 	default void visitClass(String name, AccessWidenerReader.AccessType access, boolean transitive) {
+		visitClass(name, Collections.singleton(access), transitive);
 	}
 
 	/**
@@ -47,7 +61,20 @@ public interface AccessWidenerVisitor {
 	 * @param access     the access type ({@link AccessWidenerReader.AccessType#ACCESSIBLE} or {@link AccessWidenerReader.AccessType#EXTENDABLE})
 	 * @param transitive whether this widener should be applied across mod boundaries
 	 */
+	default void visitMethod(String owner, String name, String descriptor, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
+	}
+	
+	/**
+	 * Visits a widened method.
+	 *
+	 * @param owner      the name of the containing class
+	 * @param name       the name of the method
+	 * @param descriptor the method descriptor
+	 * @param access     the access type ({@link AccessWidenerReader.AccessType#ACCESSIBLE} or {@link AccessWidenerReader.AccessType#EXTENDABLE})
+	 * @param transitive whether this widener should be applied across mod boundaries
+	 */
 	default void visitMethod(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+		visitMethod(owner, name, descriptor, Collections.singleton(access), transitive);
 	}
 
 	/**
@@ -59,6 +86,19 @@ public interface AccessWidenerVisitor {
 	 * @param access     the access type ({@link AccessWidenerReader.AccessType#ACCESSIBLE} or {@link AccessWidenerReader.AccessType#MUTABLE})
 	 * @param transitive whether this widener should be applied across mod boundaries
 	 */
+	default void visitField(String owner, String name, String descriptor, Set<AccessWidenerReader.AccessType> access, boolean transitive) {
+	}
+	
+	/**
+	 * Visits a widened field.
+	 *
+	 * @param owner      the name of the containing class
+	 * @param name       the name of the field
+	 * @param descriptor the type of the field as a type descriptor
+	 * @param access     the access type ({@link AccessWidenerReader.AccessType#ACCESSIBLE} or {@link AccessWidenerReader.AccessType#MUTABLE})
+	 * @param transitive whether this widener should be applied across mod boundaries
+	 */
 	default void visitField(String owner, String name, String descriptor, AccessWidenerReader.AccessType access, boolean transitive) {
+		visitField(owner, name, descriptor, Collections.singleton(access), transitive);
 	}
 }
